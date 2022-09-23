@@ -14,48 +14,75 @@ mu = 1.26E-6
 
 
 # PHASE SPACE ANIMATION PLOTTING PROGRAM
-def plot_phase_space_animation(file_name):
-    """PLOT PHASE SPACE ANIMATION"""
-    # COLOR FOR ANIMATIION FIGURE
-    # color_list = []
-    # for particle in particle_list[0::47]: # Every 47th particle
-    #    if particle.type == "ion":
-    #        color_list.append("red")
-    #    else:
-    #        color_list.append("black")
-    # scatter.set_facecolors(color_list)
+def plot_phase_space_animation(file_name, specie):
+    """PLOT PHASE SPACE ANIMATION
+        file_name = name of the file which stores the arrays.
+        specie = particles to be plotted ("electron", "ion", "both")
+    """
 
     # LOAD ARRAYS FROM FILE
-    loader = zarr.load('{}'.format(file_name))
-    x = loader['x']
-    vx = loader['vx']
+    loader = zarr.load('{}.zip'.format(file_name))
+
     ng = loader['ng']
     nt = loader['nt']
     slu = loader['slu']
     stu = loader['stu']
-    dx = loader['dx']
+    x = loader['x'] * slu
+    vx = loader['vx'] * slu / stu
+    dx = loader['dx'] * slu
     dt = loader['dt']
-    v_th = loader['v_th']
+    v_th = loader['v_th'] * slu / stu
     length = ng * dx
-    n_sample = len(x)
+    n_species = x.shape[0]
+    n_sample = x.shape[2]
 
     # CREATE SCATTER PLOT FOR ANIMATION
     fig_anim = plt.figure(figsize=(14, 7))  # create figure
     ax_anim = plt.axes(xlim=(0, length),
-                       ylim=(-v_th * 6, v_th * 6))  # draw axis on figure
+                       ylim=(-v_th, v_th))  # draw axis on figure
     plt.title("Phase space")  # plot title
-    plt.xlabel("x-Position (1 unit = {:.2e} m)".format(slu))  # x-axis label
-    plt.ylabel("x-Velocity (1 unit = {:.2e} m/s)".format(slu / stu))  # y-axis label
-    scatter = ax_anim.scatter(numpy.zeros(n_sample), numpy.zeros(n_sample))  # empty scatter plot
+    plt.xlabel("x-Position (m)")  # x-axis label
+    plt.ylabel("x-Velocity (m/s)")  # y-axis label
+
+    if specie == "electron":
+        scatter = ax_anim.scatter(numpy.zeros(n_sample), numpy.zeros(n_sample))  # empty scatter plot
+        color_list = ["black"] * n_sample
+    elif specie == "ion":
+        scatter = ax_anim.scatter(numpy.zeros(n_sample), numpy.zeros(n_sample))  # empty scatter plot
+        color_list = ["red"] * n_sample
+    else:
+        scatter = ax_anim.scatter(numpy.zeros(n_sample * n_species),
+                                  numpy.zeros(n_sample * n_species))  # empty scatter plot
+        color_list = numpy.concatenate([([i]*n_sample) for i in ["black","red"]], axis=0)
+
+    scatter.set_facecolors(color_list)
 
     def setup_plot():
         """Initial drawing of the scatter plot"""
-        scatter.set_offsets(numpy.column_stack((x[0], vx[0])))  # draw an initial scatter plot
+        if specie == "electron":
+            init_x = x[0, 0].flatten()
+            init_vx = vx[0, 0].flatten()
+        elif specie == "ion":
+            init_x = x[1, 0].flatten()
+            init_vx = vx[1, 0].flatten()
+        else:
+            init_x = x[:, 0].flatten()
+            init_vx = vx[:, 0].flatten()
+        scatter.set_offsets(numpy.column_stack((init_x, init_vx)))  # draw an initial scatter plot
         return scatter,
 
     def update(frame_number):
         """Update the scatter plot"""
-        scatter.set_offsets(numpy.column_stack((x[frame_number + 1], vx[frame_number + 1])))
+        if specie == "electron":
+            new_x = x[0, frame_number + 1].flatten()
+            new_vx = vx[0, frame_number + 1].flatten()
+        elif specie == "ion":
+            new_x = x[1, frame_number + 1].flatten()
+            new_vx = vx[1, frame_number + 1].flatten()
+        else:
+            new_x = x[:, frame_number + 1].flatten()
+            new_vx = vx[:, frame_number + 1].flatten()
+        scatter.set_offsets(numpy.column_stack((new_x, new_vx)))
         return scatter,
 
     # CREATE PHASE SPACE ANIMATION
@@ -64,7 +91,7 @@ def plot_phase_space_animation(file_name):
     # SAVE ANIMATION
     f = "{}_phasespace.mp4"
     writervideo = FFMpegWriter(fps=24)
-    anim.save(f.format(filename), writer=writervideo)
+    anim.save(f.format(file_name), writer=writervideo)
     plt.close()
 
 
@@ -78,7 +105,7 @@ def plot(file_name, specie):
     """
 
     # LOAD ARRAYS FROM FILE
-    loader = zarr.load('{}'.format(file_name))
+    loader = zarr.load('{}.zip'.format(file_name))
     mi = loader['mi']
     ex_list = loader['ex']
     ey_list = loader['ey']
@@ -210,25 +237,22 @@ def plot(file_name, specie):
 
     # PLOT SPECTRA
     shw1 = ax1.imshow(ex_omega_k_list[0:int(len(ex_omega_k_list) / 2 + 1)], cmap='plasma',
-                      norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ex_omega_k_list[0]))) - 3),
-                                   vmax=10 ** math.ceil(math.log10(max(ex_omega_k_list[0])))),
-                      # norm=LogNorm(),
+                      norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ex_omega_k_list[1]))) - 3),
+                                   vmax=10 ** math.ceil(math.log10(max(ex_omega_k_list[1])))),
                       origin='lower',
                       extent=[0, 2 * math.pi * len(ex_omega_k_list[0]) / length, 0,
                               2 * math.pi * (len(ex_omega_k_list) / 2 + 1) / (dt * nt)],
                       aspect='auto', interpolation='none')
     shw2 = ax2.imshow(ey_omega_k_list[0:int(len(ey_omega_k_list) / 2 + 1)], cmap='plasma',
-                      norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ey_omega_k_list[0]))) - 3),
-                                   vmax=10 ** math.ceil(math.log10(max(ey_omega_k_list[0])))),
-                      # norm=LogNorm(),
+                      norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ey_omega_k_list[1]))) - 3),
+                                   vmax=10 ** math.ceil(math.log10(max(ey_omega_k_list[1])))),
                       origin='lower',
                       extent=[0, 2 * math.pi * len(ey_omega_k_list[0]) / length, 0,
                               2 * math.pi * (len(ey_omega_k_list) / 2 + 1) / (dt * nt)],
                       aspect='auto', interpolation='none')
     shw3 = ax3.imshow(ez_omega_k_list[0:int(len(ez_omega_k_list) / 2 + 1)], cmap='plasma',
-                      norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ez_omega_k_list[0]))) - 3),
-                                   vmax=10 ** math.ceil(math.log10(max(ez_omega_k_list[0])))),
-                      # norm=LogNorm(),
+                      norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ez_omega_k_list[1]))) - 3),
+                                   vmax=10 ** math.ceil(math.log10(max(ez_omega_k_list[1])))),
                       origin='lower',
                       extent=[0, 2 * math.pi * len(ez_omega_k_list[0]) / length, 0,
                               2 * math.pi * (len(ez_omega_k_list) / 2 + 1) / (dt * nt)],
@@ -285,13 +309,13 @@ def plot(file_name, specie):
     bottom, top = plt.ylim()  # get current left and right limit
     # right = 4 * math.sqrt(wp**2 + wc**2)  # set plot limit to 4x the plasma frequency
     if specie == "ion":
-        height = 2E5  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
+        height = 5.64E5  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
         width = 1
     else:
         height = min(math.sqrt(wp ** 2 + wc ** 2) * 20, top)  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
         width = height / c  # plot width
 
-    ax1.set_xlim(right=width)  # set x limit for left plot
+    ax1.set_xlim(right=width*4)# set x limit for left plot
     ax1.set_ylim(top=height)  # set y limit for left plot
     ax2.set_xlim(right=width)  # set x limit for middle plot
     ax2.set_ylim(top=height)  # set y limit for middle plot
@@ -308,4 +332,5 @@ def plot(file_name, specie):
 
 
 # RUN MAIN PROGRAM
-plot("ni1e+08_ti1e+04_b01e-07_theta90.zip", "ion")
+#plot("ni1e+08_ti1e+04_b01e-07_theta90", "ion")
+plot_phase_space_animation("ni1e+08_ti1e+04_b01e-07_theta90", "ion")

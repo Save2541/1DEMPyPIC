@@ -10,11 +10,11 @@ import zarr
 start_time = time.monotonic()
 
 # PHYSICAL CONSTANTS (MKS UNITS)
-epsilon = 8.85E-12  # vacuum permittivity
+c = 3.00E8  # speed of light
 mu = 1.26E-6  # vacuum permeability
-c = math.sqrt(1 / mu / epsilon)  # speed of light
+epsilon = 1 / mu / c**2 #8.85E-12  # vacuum permittivity
 me_real = 9.11E-31  # electron mass
-mi_real = 100 * me_real  # 1.67E-27  # ion mass (proton)
+mi_real = 100 * me_real  # 1.67E-27 # ion mass (proton)
 qe_real = 1.60E-19  # (-) electron charge
 qi_real = qe_real  # ion (proton) charge
 qm = 1.76E11  # electron charge-to-mass ratio (q/me)
@@ -51,17 +51,17 @@ lambda_d = v_th / math.sqrt(2) / wp  # Debye length (m)
 rho_mass = n0 * me_real + n0i * mi_real  # mass density
 
 # SIMULATION SPECIFICATIONS
-ng = 4096  # number of grids (please use powers of 2 e.g. 4, 8, 1024)
-nt = 8 * 16384  # number of time steps to run
-ne = ng * 10  # ng * 100  # number of PIC electrons
+ng = 216 # 4096 # number of grids (please use powers of 2 e.g. 4, 8, 1024)
+nt = 128 * 16384 #64 * 16384  # number of time steps to run
+ne = ng * 100  # ng * 100  # number of PIC electrons
 ni = ne  # number of PIC ions
 np = ne + ni  # number of PIC particles
 
 # CREATE LOG (TEXT FILE)
 if ni > 0:
-    name = "ni{:.0e}_ti{:.0e}_b0{:.0e}_theta{}".format(n0i, ti, b0, int(theta * 180 / math.pi))  # name string
+    name = "ni{:.0e}_ti{:.0e}_b0{:.0e}_theta{}_nt{}".format(n0i, ti, b0, int(theta * 180 / math.pi), nt)  # name string
 else:
-    name = "ne{:.0e}_te{:.0e}_b0{:.0e}_theta{}".format(n0, te, b0, int(theta * 180 / math.pi))  # name string
+    name = "ne{:.0e}_te{:.0e}_b0{:.0e}_theta{}_nt{}".format(n0, te, b0, int(theta * 180 / math.pi), nt)  # name string
 
 log = open("{}.txt".format(name), "w")
 print("---------------------------PHYSICAL CONSTANTS---------------------------", file=log)
@@ -198,7 +198,8 @@ assert vi_th < c, "ION THERMAL VELOCITY GREATER THAN THE SPEED OF LIGHT!"
 
 # PLOT SPECIFICATIONS
 n_sample = min(ne, ni, ng)  # number of particles to plot per specie
-nt_sample = ng * 16  # how many time steps to store (use powers of 2)
+nt_sample = ng #ng * 32  # how many time steps to store (use powers of 2)
+assert nt_sample <= nt, "NOT ENOUGH TIME STEPS TO STORE!"
 dt_sample = dt * nt / nt_sample  # duration per sample
 
 
