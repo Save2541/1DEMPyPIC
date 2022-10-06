@@ -9,10 +9,13 @@ import zarr
 # GET STARTING TIME
 start_time = time.monotonic()
 
+# GET TIME STRING FOR FILE NAME
+timestr = time.strftime("%Y%m%d-%H%M%S")
+
 # PHYSICAL CONSTANTS (MKS UNITS)
 c = 3.00E8  # speed of light
 mu = 1.26E-6  # vacuum permeability
-epsilon = 1 / mu / c**2 #8.85E-12  # vacuum permittivity
+epsilon = 1 / mu / c ** 2  # 8.85E-12  # vacuum permittivity
 me_real = 9.11E-31  # electron mass
 mi_real = 100 * me_real  # 1.67E-27 # ion mass (proton)
 qe_real = 1.60E-19  # (-) electron charge
@@ -24,8 +27,8 @@ kb = 1.38E-23  # Boltzmann constant
 # PLASMA SPECIFICATIONS
 n0 = 1E8  # plasma electron density (1/m^3)
 n0i = n0  # plasma ion density (1/m^3)
-te = 1E4  # electron temperature (K)
-ti = te  # ion temperature (K)
+te = 1E7  # electron temperature (K)
+ti = 1E4  # ion temperature (K)
 
 # EXTERNAL MAGNETIC FIELD SPECIFICATIONS (VECTOR ON X-Z PLANE)
 b0 = 0.01E-5  # magnetic field strength (T)
@@ -51,17 +54,34 @@ lambda_d = v_th / math.sqrt(2) / wp  # Debye length (m)
 rho_mass = n0 * me_real + n0i * mi_real  # mass density
 
 # SIMULATION SPECIFICATIONS
-ng = 216 # 4096 # number of grids (please use powers of 2 e.g. 4, 8, 1024)
-nt = 128 * 16384 #64 * 16384  # number of time steps to run
-ne = ng * 100  # ng * 100  # number of PIC electrons
+ng = 1024  # 4096 # number of grids (please use powers of 2 e.g. 4, 8, 1024)
+nt = 16384  # 64 * 16384  # number of time steps to run
+ne = ng * 10  # ng * 100  # number of PIC electrons
 ni = ne  # number of PIC ions
 np = ne + ni  # number of PIC particles
 
+# INITIAL VELOCITY WAVES (TRANSVERSE)
+nw_amplitude_e = [0, 0] #[ng / 128, v_th * 10]
+nw_amplitude_i = [0, 0] #[ng / 128, vi_th * 10]
+init_v_wv = {  # initialize a wave in each component: [number of waves per system length, amplitude]
+    "electron": {
+        "vxp": nw_amplitude_e,
+        "vy": nw_amplitude_e,
+        "vb0": nw_amplitude_e
+    },
+    "ion": {
+        "vxp": nw_amplitude_i,
+        "vy": nw_amplitude_i,
+        "vb0": nw_amplitude_i
+    }
+}
+
 # CREATE LOG (TEXT FILE)
 if ni > 0:
-    name = "ni{:.0e}_ti{:.0e}_b0{:.0e}_theta{}_nt{}".format(n0i, ti, b0, int(theta * 180 / math.pi), nt)  # name string
+    name = "{}_ni{:.0e}_ti{:.0e}_te{:.0e}_b0{:.0e}_theta{}".format(timestr, n0i, ti, te, b0,
+                                                                        int(theta * 180 / math.pi), nt)  # name string
 else:
-    name = "ne{:.0e}_te{:.0e}_b0{:.0e}_theta{}_nt{}".format(n0, te, b0, int(theta * 180 / math.pi), nt)  # name string
+    name = "{}_ne{:.0e}_te{:.0e}_b0{:.0e}_theta{}".format(timestr, n0, te, b0, int(theta * 180 / math.pi), nt)
 
 log = open("{}.txt".format(name), "w")
 print("---------------------------PHYSICAL CONSTANTS---------------------------", file=log)
@@ -81,6 +101,13 @@ if ni > 0:
 print("x-Magnetic field                                 = {:.2e} T".format(bx0), file=log)
 print("z-Magnetic field                                 = {:.2e} T".format(bz0), file=log)
 print("y-Electric field                                 = {:.2e} V/m".format(e_ext), file=log)
+print("---------------------------INITIAL VELOCITY WAVES---------------------------", file=log)
+print("(Component: [number of waves, amplitude (m/s)])", file=log)
+print("Electrons:", file=log)
+print(init_v_wv["electron"], file=log)
+if ni > 0:
+    print("Ions:", file=log)
+    print(init_v_wv["ion"], file=log)
 print("---------------------------DERIVED QUANTITIES---------------------------", file=log)
 print("Electron plasma frequency                        = {:.2e} Hz".format(wp), file=log)
 print("Electron cyclotron frequency                     = {:.2e} Hz".format(wc), file=log)
@@ -105,6 +132,11 @@ c = 1  # scaled speed of light
 mu = 1 / c ** 2 / epsilon  # scaled vacuum permeability
 qm = 1  # scaled electron charge-to-mass ratio (q/me)
 qmi = qmi * smu / scu  # scaled ion charge-to-mass ratio (q/mi)
+
+# SCALED VELOCITY WAVE AMPLITUDES & RENAMED DICTIONARY KEYS
+for specie in init_v_wv:
+    for v in init_v_wv[specie]:
+        init_v_wv[specie][v][1] = init_v_wv[specie][v][1] * stu / slu
 
 # SCALED DERIVED QUANTITIES
 wp = wp * stu  # scaled electron plasma frequency
@@ -138,6 +170,9 @@ print("Speed of light                                   = {:.2e}".format(c), fil
 print("Electron charge-to-mass ratio                    = -{:.2e}".format(qm), file=log)
 if ni > 0:
     print("Ion charge-to-mass ratio                         = {:.2e}".format(qmi), file=log)
+print("---------------------------INITIAL VELOCITY WAVES IN SIMULATION UNITS---------------------------", file=log)
+print("Component: [number of waves, amplitude]", file=log)
+print(init_v_wv, file=log)
 print("---------------------------DERIVED QUANTITIES IN SIMULATION UNITS---------------------------", file=log)
 print("Electron energy (kT)                             = {:.2e}".format(kte), file=log)
 print("Electron plasma frequency                        = {:.2e}".format(wp), file=log)
@@ -198,7 +233,7 @@ assert vi_th < c, "ION THERMAL VELOCITY GREATER THAN THE SPEED OF LIGHT!"
 
 # PLOT SPECIFICATIONS
 n_sample = min(ne, ni, ng)  # number of particles to plot per specie
-nt_sample = ng #ng * 32  # how many time steps to store (use powers of 2)
+nt_sample = min(16384, nt)  # ng * 32  # how many time steps to store (use powers of 2)
 assert nt_sample <= nt, "NOT ENOUGH TIME STEPS TO STORE!"
 dt_sample = dt * nt / nt_sample  # duration per sample
 
@@ -327,24 +362,63 @@ grids = GridPointList(numpy.arange(0, length, dx))
 # CONSTRUCT A RANDOM NUMBER GENERATOR
 rng = numpy.random.default_rng()
 
+# INITIAL POSITION WAVE (LONGITUDINAL)
+init_pos_wv = False
+if init_pos_wv:
+    # SET PROBABILITY DISTRIBUTIONS
+    nw = 5  # number of wavelengths to fit in the box
+    prob_list = 1 + numpy.sin(nw / length * grids.x)  # probability of particles to be in each grid cell
+    prob_list = prob_list / sum(prob_list)  # normalized probability distribution
+    x_list = {  # list of electron positions and ion positions
+        "electron": numpy.random.choice(grids.x, ne, p=prob_list),
+        "ion": numpy.random.choice(grids.x, ni, p=prob_list)
+    }
+else:
+    x_list = {  # list of electron positions and ion positions
+        "electron": rng.uniform(0, length, size=ne),
+        "ion": rng.uniform(0, length, size=ni)
+    }
+
+# DEFAULT VELOCITY DISTRIBUTIONS (GAUSSIAN)
+v_list = {
+    "electron": {
+        "vxp": rng.normal(0.0, v_th / math.sqrt(2), size=ne),
+        "vy": rng.normal(0.0, v_th / math.sqrt(2), size=ne),
+        "vb0": rng.normal(0.0, v_th / math.sqrt(2), size=ne)
+    },
+    "ion": {
+        "vxp": rng.normal(0.0, vi_th / math.sqrt(2), size=ni),
+        "vy": rng.normal(0.0, vi_th / math.sqrt(2), size=ni),
+        "vb0": rng.normal(0.0, vi_th / math.sqrt(2), size=ni)
+    }
+}
+
+
+# INITIAL VELOCITY WAVES
+for specie_key in v_list:
+    for v_key in v_list[specie_key]:
+        nw, amplitude = init_v_wv[specie_key][v_key]
+        v_list[specie_key][v_key] = v_list[specie_key][v_key] + amplitude * numpy.sin(2 * math.pi * nw / length * x_list[specie_key])
+
+
 # GENERATE PARTICLES (FROM LIST OF POSITIONS AND VELOCITIES)
 if ni == 0:
-    species = [ElectronList(rng.uniform(0, length, size=ne),  # uniform position distribution
+    species = [ElectronList(x_list["electron"],  # uniform position distribution
                             # gaussian velocity distribution
-                            vxp=rng.normal(0.0, v_th / math.sqrt(2), size=ne),
-                            vy=rng.normal(0.0, v_th / math.sqrt(2), size=ne),
-                            vb0=rng.normal(0.0, v_th / math.sqrt(2), size=ne))]
+                            vxp=v_list["electron"]["vxp"],
+                            vy=v_list["electron"]["vy"],
+                            vb0=v_list["electron"]["vb0"])]
 else:
-    species = [ElectronList(rng.uniform(0, length, size=ne),  # uniform position distribution
+    species = [ElectronList(x_list["electron"],  # uniform position distribution
                             # gaussian velocity distribution
-                            vxp=rng.normal(0.0, v_th / math.sqrt(2), size=ne),
-                            vy=rng.normal(0.0, v_th / math.sqrt(2), size=ne),
-                            vb0=rng.normal(0.0, v_th / math.sqrt(2), size=ne)),
-               IonList(rng.uniform(0, length, size=ni),  # uniform position distribution
+                            vxp=v_list["electron"]["vxp"],
+                            vy=v_list["electron"]["vy"],
+                            vb0=v_list["electron"]["vb0"]),
+               IonList(x_list["ion"],  # uniform position distribution
                        # gaussian velocity distribution
-                       vxp=rng.normal(0.0, vi_th / math.sqrt(2), size=ni),
-                       vy=rng.normal(0.0, vi_th / math.sqrt(2), size=ni),
-                       vb0=rng.normal(0.0, vi_th / math.sqrt(2), size=ni))]
+                       vxp=v_list["ion"]["vxp"],
+                       vy=v_list["ion"]["vy"],
+                       vb0=v_list["ion"]["vb0"])]
 
 
 def initialization():
@@ -665,6 +739,9 @@ def main():
     ex_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Ex VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
     ey_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Ey VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
     ez_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Ez VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
+    by_list = numpy.zeros(shape=(nt_sample, ng))  # STORE By VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
+    bz_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Bz VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
+    rho_list = numpy.zeros(shape=(nt_sample, ng))  # STORE RHO VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
 
     def main_loop(time_step):
         """MAIN PROGRAM TO BE LOOPED"""
@@ -691,6 +768,11 @@ def main():
             ex_list[index] = grids.ex
             ey_list[index] = grids.ey
             ez_list[index] = grids.ez
+            # STORE THE B FIELD FOR PLOTTING
+            by_list[index] = grids.by
+            bz_list[index] = grids.bz
+            # STORE RHO FOR PLOTTING
+            rho_list[index] = grids.rho
 
     # RUN THE MAIN LOOP FOR A NUMBER OF TIME STEPS
     for count in range(nt):
@@ -702,15 +784,24 @@ def main():
     print("---------------------------RUNTIME---------------------------", file=log)
     print("Duration                        = {}".format(timedelta(seconds=end_time - start_time)), file=log)
 
+    # STORE K-VALUES OF THE INITIAL VELOCITY WAVES
+    init_k_list = []
+    for specie_key in init_v_wv:
+        k_temp = []
+        for v_key in init_v_wv[specie_key]:
+            k_temp.append(init_v_wv[specie_key][v_key][0] * 2 * math.pi / length / slu)
+        init_k_list.append(k_temp)
+
     # CLOSE LOG FILE
     log.close()
-
     # SAVE ARRAYS TO FILE
     zarr.save('{}.zip'.format(name),
               kte=kte, kti=kti, mi=mi_real, b0=b0, rho=rho_mass,
-              ex=ex_list, ey=ey_list, ez=ez_list, x=x_data, vx=v_data, ng=ng, nt=nt_sample, smu=smu, scu=scu,
+              ex=ex_list, ey=ey_list, ez=ez_list, by=by_list, bz=bz_list, rho_list=rho_list, x=x_data, vx=v_data,
+              ng=ng, nt=nt_sample,
+              smu=smu, scu=scu,
               slu=slu, stu=stu, c=c, dx=dx, dt=dt_sample, wp=wp, wpi=wpi, wc=wc, wci=wci, theta=theta, v_th=v_th,
-              vi_th=vi_th)
+              vi_th=vi_th, init_k=init_k_list)
 
 
 #  INDICES OF PARTICLES TO BE PLOTTED IN THE ANIMATION
