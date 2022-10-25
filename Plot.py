@@ -1,3 +1,4 @@
+import io
 import math
 import scipy.fft
 import matplotlib.pyplot as plt
@@ -30,8 +31,9 @@ def plot_phase_space_animation(file_name, specie):
     x = loader['x'] * slu
     vx = loader['vx'] * slu / stu
     dx = loader['dx'] * slu
-    dt = loader['dt']
+    dt = loader['dt'] * stu / 10**-3
     v_th = loader['v_th'] * slu / stu
+    vi_th = loader['vi_th'] * slu / stu
     length = ng * dx
     n_species = x.shape[0]
     n_sample = x.shape[2]
@@ -39,7 +41,7 @@ def plot_phase_space_animation(file_name, specie):
     # CREATE SCATTER PLOT FOR ANIMATION
     fig_anim = plt.figure(figsize=(14, 7))  # create figure
     ax_anim = plt.axes(xlim=(0, length),
-                       ylim=(-v_th * 6, v_th * 6))  # draw axis on figure
+                       ylim=(-vi_th * 20, vi_th * 20))  # draw axis on figure
     plt.title("Phase space")  # plot title
     plt.xlabel("x-Position (m)")  # x-axis label
     plt.ylabel("x-Velocity (m/s)")  # y-axis label
@@ -86,11 +88,11 @@ def plot_phase_space_animation(file_name, specie):
         return scatter,
 
     # CREATE PHASE SPACE ANIMATION
-    anim = FuncAnimation(fig_anim, update, init_func=setup_plot, interval=200, save_count=nt)
+    anim = FuncAnimation(fig_anim, update, init_func=setup_plot, save_count=nt)
 
     # SAVE ANIMATION
     f = "{}_phasespace.mp4"
-    writervideo = FFMpegWriter(fps=24)
+    writervideo = FFMpegWriter(fps=3000)
     anim.save(f.format(file_name), writer=writervideo)
     plt.close()
 
@@ -102,7 +104,7 @@ def plot(file_name, specie, field):
     """PLOTTING PROGRAM
         file_name = name of the file which stores the arrays.
         specie = theoretical waves to be plotted ("electron", "ion", "both")
-        field = field to be plotted (E, B, rho)
+        field = field to be plotted (E, B, rho, rho_d)
     """
 
     # LOAD ARRAYS FROM FILE
@@ -118,8 +120,8 @@ def plot(file_name, specie, field):
     by_list = loader['by'] * smu / scu / stu
     bz_list = loader['bz'] * smu / scu / stu
     rho_list = loader['rho_list']
-    ng = loader['ng']
-    nt = loader['nt']
+    ng = int(loader['ng'])
+    nt = int(loader['nt'])
     b0 = loader['b0'] * smu / scu / stu
     rho = loader['rho']
     kte = loader['kte'] * smu * slu ** 2 / stu ** 2
@@ -133,8 +135,10 @@ def plot(file_name, specie, field):
     c = loader['c'] * slu / stu
     theta = loader['theta']
     v_th = loader['v_th'] * slu / stu
+    init_d_k = loader['init_d_k']
     init_k = loader['init_k']
     length = ng * dx
+    print(init_d_k)
     print(init_k)
 
     # k-DOMAIN FOR THEORETICAL WAVE PLOTS
@@ -240,18 +244,18 @@ def plot(file_name, specie, field):
     print("Fourier transforming...")
     if field == 'B':
         title1 = 'Ex'
-        ex_omega_k_list = numpy.abs(numpy.real(dx * dt * scipy.fft.rfft2(ex_list)))
+        ex_omega_k_list = numpy.abs(dx * dt * scipy.fft.rfft2(ex_list))
         title2 = 'By'
-        ey_omega_k_list = numpy.abs(numpy.real(dx * dt * scipy.fft.rfft2(by_list)))
+        ey_omega_k_list = numpy.abs(dx * dt * scipy.fft.rfft2(by_list))
         title3 = 'Bz'
-        ez_omega_k_list = numpy.abs(numpy.real(dx * dt * scipy.fft.rfft2(bz_list)))
-    elif field == 'rho':
+        ez_omega_k_list = numpy.abs(dx * dt * scipy.fft.rfft2(bz_list))
+    elif field == 'rho' or field == 'rho_d':
         title1 = 'rho'
-        ex_omega_k_list = numpy.abs(numpy.real(dx * dt * scipy.fft.rfft2(rho_list)))
+        ex_omega_k_list = numpy.abs(dx * dt * scipy.fft.rfft2(rho_list))
         title2 = 'Ey'
-        ey_omega_k_list = numpy.abs(numpy.real(dx * dt * scipy.fft.rfft2(ey_list)))
+        ey_omega_k_list = numpy.abs(dx * dt * scipy.fft.rfft2(ey_list))
         title3 = 'Ez'
-        ez_omega_k_list = numpy.abs(numpy.real(dx * dt * scipy.fft.rfft2(ez_list)))
+        ez_omega_k_list = numpy.abs(dx * dt * scipy.fft.rfft2(ez_list))
 
         # CHANGE THEORETICAL LINES
         if specie == 'electron':
@@ -259,57 +263,105 @@ def plot(file_name, specie, field):
         if specie == 'ion':
             index = 1
 
-        ey_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
-        ey_k_list = ey_omega_list * 0 + init_k[index][1]
-
-        if theta == 0:
-            ex_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
-            ex_k_list = ex_omega_list * 0 + init_k[index][0]
-            ez_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
-            ez_k_list = ez_omega_list * 0 + init_k[index][2]
-        elif theta == math.pi / 2:
-            ex_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
-            ex_k_list = ex_omega_list * 0 + init_k[index][2]
-            ez_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
-            ez_k_list = ez_omega_list * 0 + init_k[index][0]
+        # if field == 'rho':
+        #     ey_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
+        #     ey_k_list = ey_omega_list * 0 + init_k[index][1]
+        #
+        #     if theta == 0:
+        #         ex_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
+        #         ex_k_list = ex_omega_list * 0 + init_k[index][0]
+        #         ez_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
+        #         ez_k_list = ez_omega_list * 0 + init_k[index][2]
+        #     elif theta == math.pi / 2:
+        #         ex_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
+        #         ex_k_list = ex_omega_list * 0 + init_k[index][2]
+        #         ez_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
+        #         ez_k_list = ez_omega_list * 0 + init_k[index][0]
+        # else:
+        #     ex_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
+        #     ex_k_list = ex_omega_list * 0 + init_d_k[index]
 
     else:
         title1 = 'Ex'
-        ex_omega_k_list = numpy.abs(numpy.real(dx * dt * scipy.fft.rfft2(ex_list)))
+        ex_omega_k_list = numpy.abs(dx * dt * scipy.fft.rfft2(ex_list))
         title2 = 'Ey'
-        ey_omega_k_list = numpy.abs(numpy.real(dx * dt * scipy.fft.rfft2(ey_list)))
+        ey_omega_k_list = numpy.abs(dx * dt * scipy.fft.rfft2(ey_list))
         title3 = 'Ez'
-        ez_omega_k_list = numpy.abs(numpy.real(dx * dt * scipy.fft.rfft2(ez_list)))
+        ez_omega_k_list = numpy.abs(dx * dt * scipy.fft.rfft2(ez_list))
 
     print('Plot dimensions: x = ', len(ey_omega_k_list[0]), 'y = ', len(ey_omega_k_list) // 2, ".")  # print dimensions
 
+    # GET SAMPLE FREQUENCIES
+    sample_k = 2 * math.pi * scipy.fft.rfftfreq(ng, dx)
+    sample_omega = 2 * math.pi * scipy.fft.fftfreq(nt, dt)
+
+    # CONSTRUCT A 2D ARRAY OF K-VALUES
+    k_array = numpy.tile(sample_k, (nt, 1))
+
+    # SMOOTHING FUNCTIONS
+    def smooth(fourier_plot, weight):
+        """
+        Apply smoothing function to fourier-transformed plot
+        :param fourier_plot: fourier-transformed plot to be smoothed
+        :param weight: weight of smoothing
+        :return: smoothed plot
+        """
+
+        return (1 + 2 * weight * numpy.cos(k_array * dx))/(1 + 2 * weight) * fourier_plot
+
+    # SMOOTH PLOTS
+    w_smooth = 0.5
+    ex_omega_k_list = smooth(ex_omega_k_list, w_smooth)
+    ey_omega_k_list = smooth(ey_omega_k_list, w_smooth)
+    ez_omega_k_list = smooth(ez_omega_k_list, w_smooth)
+
+    def extent_function(xcoords, ycoords):
+        '''returns extent (to go to imshow), given xcoords, ycoords. Assumes origin='lower'.
+        Use this method to properly align extent with middle of pixels.
+        (Noticeable when imshowing few enough pixels that individual pixels are visible.)
+
+        xcoords and ycoords should be arrays.
+        (This method uses their first & last values, and their lengths.)
+
+        returns extent == np.array([left, right, bottom, top]).
+        '''
+        Nx = len(xcoords)
+        Ny = len(ycoords)
+        dx = (xcoords[-1] - xcoords[0]) / Nx
+        dy = (ycoords[-1] - ycoords[0]) / Ny
+        return numpy.array([*(xcoords[0] + numpy.array([0 - dx / 2, dx * Nx + dx / 2])),
+                         *(ycoords[0] + numpy.array([0 - dy / 2, dy * Ny + dy / 2]))])
+
+    # GET PLOT EXTENT
+    sample_omega = sample_omega[0:nt//2]
+    extent = extent_function(sample_k, sample_omega)
+    #extent = [sample_k[0], sample_k[-1], sample_omega[0], -sample_omega[nt // 2]]
+    y_max = nt // 2 + 1
+
     # PLOT SPECTRA
-    shw1 = ax1.imshow(ex_omega_k_list[0:int(len(ex_omega_k_list) / 2 + 1)], cmap='plasma',
-                      #norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ex_omega_k_list[1]))) - 2),
-                      #             vmax=10 ** math.ceil(math.log10(max(ex_omega_k_list[1])))),
-                      norm=LogNorm(vmin=10 ** -6,
-                                  vmax=10 ** -4),
+    shw1 = ax1.imshow(ex_omega_k_list[0:y_max], cmap='plasma',
+                      norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ex_omega_k_list[1]))) - 2),
+                                   vmax=10 ** math.ceil(math.log10(max(ex_omega_k_list[1])))),
+                      #norm=LogNorm(vmin=10**-1, vmax=1),
                       origin='lower',
-                      extent=[0, 2 * math.pi * len(ex_omega_k_list[0]) / length, 0,
-                              2 * math.pi * (len(ex_omega_k_list) / 2 + 1) / (dt * nt)],
+                      extent=extent,
                       aspect='auto', interpolation='none')
-    shw2 = ax2.imshow(ey_omega_k_list[0:int(len(ey_omega_k_list) / 2 + 1)], cmap='plasma',
-                      norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ey_omega_k_list[1]))) - 2),
-                                   vmax=10 ** math.ceil(math.log10(max(ey_omega_k_list[1])))),
+    shw2 = ax2.imshow(ey_omega_k_list[0:y_max], cmap='plasma',
+                      #norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ey_omega_k_list[1]))) - 2),
+                      #             vmax=10 ** math.ceil(math.log10(max(ey_omega_k_list[1])))),
+                      norm=LogNorm(vmin=10**-2, vmax=10**-1),
                       origin='lower',
-                      extent=[0, 2 * math.pi * len(ey_omega_k_list[0]) / length, 0,
-                              2 * math.pi * (len(ey_omega_k_list) / 2 + 1) / (dt * nt)],
+                      extent=extent,
                       aspect='auto', interpolation='none')
-    shw3 = ax3.imshow(ez_omega_k_list[0:int(len(ez_omega_k_list) / 2 + 1)], cmap='plasma',
-                      norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ez_omega_k_list[1]))) - 2),
-                                   vmax=10 ** math.ceil(math.log10(max(ez_omega_k_list[1])))),
+    shw3 = ax3.imshow(ez_omega_k_list[0:y_max], cmap='plasma',
+                      #norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ez_omega_k_list[1]))) - 2),
+                      #             vmax=10 ** math.ceil(math.log10(max(ez_omega_k_list[1])))),
+                      norm=LogNorm(vmin=10 ** -2, vmax=10 ** -1),
                       origin='lower',
-                      extent=[0, 2 * math.pi * len(ez_omega_k_list[0]) / length, 0,
-                              2 * math.pi * (len(ez_omega_k_list) / 2 + 1) / (dt * nt)],
+                      extent=extent,
                       aspect='auto', interpolation='none')
 
-    print([0, 2 * math.pi * len(ey_omega_k_list[0]) / length, 0,
-           2 * math.pi * (len(ey_omega_k_list) / 2 + 1) / (dt * nt)])  # PRINT PLOT SIZES
+    print(extent)  # PRINT PLOT SIZES
 
     # CREATE BAR PLOTS
     color_bar_text_size = 5  # set text size on color bar
@@ -350,38 +402,55 @@ def plot(file_name, specie, field):
     # alfven_wv = ax.plot(omega_list, alfven_omega_list, color='white')
 
     # PLOT THEORETICAL WAVES
-    ex_wv = ax1.plot(ex_k_list, ex_omega_list, color='black', linewidth=0.5)  # draw theoretical line on left plot
-    ey_wv = ax2.plot(ey_k_list, ey_omega_list, color='black', linewidth=0.5)  # draw theoretical line on middle plot
-    ez_wv = ax3.plot(ez_k_list, ez_omega_list, color='black', linewidth=0.5)  # draw theoretical line on right plot
+    ex_wv = ax1.plot(ex_k_list, ex_omega_list, color='black', linewidth=1)  # draw theoretical line on left plot
+    ey_wv = ax2.plot(ey_k_list, ey_omega_list, color='black', linewidth=1)  # draw theoretical line on middle plot
+    ez_wv = ax3.plot(ez_k_list, ez_omega_list, color='black', linewidth=1)  # draw theoretical line on right plot
 
     # CROP PLOT
     left, right = plt.xlim()  # get current left and right limit
     bottom, top = plt.ylim()  # get current left and right limit
     # right = 4 * math.sqrt(wp**2 + wc**2)  # set plot limit to 4x the plasma frequency
-    if specie == "ion":
-        height = 1E6  # 5.64E5  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
-        width = 0.01
+    if specie == 'electron': #"ion":
+        height = top #1E6  # 5.64E5  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
+        width = right #0.5
     else:
         height = min(math.sqrt(wp ** 2 + wc ** 2) * 20, top)  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
         width = height / c  # plot width
 
     # CROP PLOTS
-    ax1.set_xlim(right=width)  # set x limit for left plot
-    ax1.set_ylim(top=height)  # set y limit for left plot
-    ax2.set_xlim(right=width)  # set x limit for middle plot
-    ax2.set_ylim(top=height)  # set y limit for middle plot
-    ax3.set_xlim(right=width)  # set x limit for right plot
-    ax3.set_ylim(top=height)  # set y limit for right plot
+    # ax1.set_xlim(right=width)  # set x limit for left plot
+    # ax1.set_ylim(top=height)  # set y limit for left plot
+    # ax2.set_xlim(right=width)  # set x limit for middle plot
+    # ax2.set_ylim(top=height)  # set y limit for middle plot
+    # ax3.set_xlim(right=width)  # set x limit for right plot
+    # ax3.set_ylim(top=height)  # set y limit for right plot
     # plt.xlim([0, 2 * math.pi * ng / 2 / length])
     # plt.ylim([0, 2 * math.pi * nt / 2 / (dt * nt)])
 
     # PREVENT PLOT OVERLAPS
     plt.tight_layout()
 
-    plt.savefig('E_{}.png'.format(file_name))  # save figure
+    plt.savefig('{}_{}.png'.format(field, file_name))  # save figure
     #plt.show()  # show figure
 
 
 # RUN MAIN PROGRAM
-plot("20221006-181403_ni1e+08_ti1e+04_te1e+07_b01e-07_theta90", "ion", "rho")
-# plot_phase_space_animation("ni1e+08_ti1e+04_b01e-07_theta90_nt2097152", "both")
+#plot("20221013-122755_ni1e+08_ti1e+04_te1e+05_b00e+00_theta90", "ion", "rho")
+
+# RUN PROGRAM WITH PROFILER
+if __name__ == '__main__':
+    import cProfile
+    import pstats
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+    file = "20221025-161417_ne1e+08_te1e+05_b00e+00_theta90"
+    plot(file, "electron", "rho")
+    #plot_phase_space_animation(file, "ion")
+    profiler.disable()
+    s = io.StringIO()
+    stats = pstats.Stats(profiler, stream=s).sort_stats('tottime')
+    stats.print_stats()
+
+    with open('outstats_ps.txt', 'w+') as f:
+        f.write(s.getvalue())

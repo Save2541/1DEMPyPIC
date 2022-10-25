@@ -27,11 +27,11 @@ kb = 1.38E-23  # Boltzmann constant
 # PLASMA SPECIFICATIONS
 n0 = 1E8  # plasma electron density (1/m^3)
 n0i = n0  # plasma ion density (1/m^3)
-te = 1E7  # electron temperature (K)
+te = 1E5  # electron temperature (K)
 ti = 1E4  # ion temperature (K)
 
 # EXTERNAL MAGNETIC FIELD SPECIFICATIONS (VECTOR ON X-Z PLANE)
-b0 = 0.01E-5  # magnetic field strength (T)
+b0 = 0  # 0.01E-5  # magnetic field strength (T)
 theta = math.pi / 2  # magnetic field angle (rad) (e.g., 0 is along +z-axis, Pi/2 is along +x-axis)
 sin_theta = math.sin(theta)
 cos_theta = math.cos(theta)
@@ -54,32 +54,47 @@ lambda_d = v_th / math.sqrt(2) / wp  # Debye length (m)
 rho_mass = n0 * me_real + n0i * mi_real  # mass density
 
 # SIMULATION SPECIFICATIONS
-ng = 1024  # 4096 # number of grids (please use powers of 2 e.g. 4, 8, 1024)
+ng = 2048  # 1024  # 4096 # number of grids (please use powers of 2 e.g. 4, 8, 1024)
 nt = 16384  # 64 * 16384  # number of time steps to run
 ne = ng * 10  # ng * 100  # number of PIC electrons
-ni = ne  # number of PIC ions
+ni = 0 #ne  # number of PIC ions
 np = ne + ni  # number of PIC particles
 
+# INITIAL DENSITY WAVES (LONGITUDINAL)
+d_nw_e = 0  # number of waves (electrons)
+d_amplitude_e = 0  # amplitude (electrons) (must be between 0 and 1)
+d_nw_i = 0  # number of waves (ions)
+d_amplitude_i = 0  # amplitude (ions) (must be between 0 and 1)
+
+init_d_wv = {  # initialize a wave in each component: [number of waves per system length, amplitude]
+    "electron": [d_nw_e, d_amplitude_e],
+    "ion": [d_nw_i, d_amplitude_i]
+}
+print(init_d_wv)
+
 # INITIAL VELOCITY WAVES (TRANSVERSE)
-nw_amplitude_e = [0, 0] #[ng / 128, v_th * 10]
-nw_amplitude_i = [0, 0] #[ng / 128, vi_th * 10]
+nw_e = 0  # number of waves (electrons)
+amplitude_e = 0  # amplitude (electrons)
+nw_i = 0  # 130  # number of waves (ions)
+amplitude_i = 0  # vi_th * 100  # amplitude (ions)
+
 init_v_wv = {  # initialize a wave in each component: [number of waves per system length, amplitude]
     "electron": {
-        "vxp": nw_amplitude_e,
-        "vy": nw_amplitude_e,
-        "vb0": nw_amplitude_e
+        "vxp": [nw_e, amplitude_e],
+        "vy": [nw_e, amplitude_e],
+        "vb0": [nw_e, amplitude_e]
     },
     "ion": {
-        "vxp": nw_amplitude_i,
-        "vy": nw_amplitude_i,
-        "vb0": nw_amplitude_i
+        "vxp": [nw_i, amplitude_i],
+        "vy": [nw_i, amplitude_i],
+        "vb0": [nw_i, amplitude_i]
     }
 }
 
 # CREATE LOG (TEXT FILE)
 if ni > 0:
     name = "{}_ni{:.0e}_ti{:.0e}_te{:.0e}_b0{:.0e}_theta{}".format(timestr, n0i, ti, te, b0,
-                                                                        int(theta * 180 / math.pi), nt)  # name string
+                                                                   int(theta * 180 / math.pi), nt)  # name string
 else:
     name = "{}_ne{:.0e}_te{:.0e}_b0{:.0e}_theta{}".format(timestr, n0, te, b0, int(theta * 180 / math.pi), nt)
 
@@ -101,6 +116,13 @@ if ni > 0:
 print("x-Magnetic field                                 = {:.2e} T".format(bx0), file=log)
 print("z-Magnetic field                                 = {:.2e} T".format(bz0), file=log)
 print("y-Electric field                                 = {:.2e} V/m".format(e_ext), file=log)
+print("---------------------------INITIAL DENSITY WAVES---------------------------", file=log)
+print("(Component: [number of waves, amplitude (probability)])", file=log)
+print("Electrons:", file=log)
+print(init_d_wv["electron"], file=log)
+if ni > 0:
+    print("Ions:", file=log)
+    print(init_d_wv["ion"], file=log)
 print("---------------------------INITIAL VELOCITY WAVES---------------------------", file=log)
 print("(Component: [number of waves, amplitude (m/s)])", file=log)
 print("Electrons:", file=log)
@@ -171,8 +193,12 @@ print("Electron charge-to-mass ratio                    = -{:.2e}".format(qm), f
 if ni > 0:
     print("Ion charge-to-mass ratio                         = {:.2e}".format(qmi), file=log)
 print("---------------------------INITIAL VELOCITY WAVES IN SIMULATION UNITS---------------------------", file=log)
-print("Component: [number of waves, amplitude]", file=log)
-print(init_v_wv, file=log)
+print("(Component: [number of waves, amplitude (m/s)])", file=log)
+print("Electrons:", file=log)
+print(init_v_wv["electron"], file=log)
+if ni > 0:
+    print("Ions:", file=log)
+    print(init_v_wv["ion"], file=log)
 print("---------------------------DERIVED QUANTITIES IN SIMULATION UNITS---------------------------", file=log)
 print("Electron energy (kT)                             = {:.2e}".format(kte), file=log)
 print("Electron plasma frequency                        = {:.2e}".format(wp), file=log)
@@ -191,7 +217,7 @@ print("y-Electric field                                 = {:.2e}".format(e_ext),
 # GRID SIZES
 dx = lambda_d  # spatial grid size
 length = ng * dx  # length of the system
-dt = dx / c  # duration of time step
+dt = 200 * dx / c  # duration of time step
 
 # PROPERTIES OF PIC PARTICLES
 qe = wp ** 2 * length / ne * epsilon / qm  # charge per PIC particle
@@ -233,7 +259,7 @@ assert vi_th < c, "ION THERMAL VELOCITY GREATER THAN THE SPEED OF LIGHT!"
 
 # PLOT SPECIFICATIONS
 n_sample = min(ne, ni, ng)  # number of particles to plot per specie
-nt_sample = min(16384, nt)  # ng * 32  # how many time steps to store (use powers of 2)
+nt_sample = max(nt // 1024, nt)  # ng * 32  # how many time steps to store (use powers of 2)
 assert nt_sample <= nt, "NOT ENOUGH TIME STEPS TO STORE!"
 dt_sample = dt * nt / nt_sample  # duration per sample
 
@@ -362,22 +388,20 @@ grids = GridPointList(numpy.arange(0, length, dx))
 # CONSTRUCT A RANDOM NUMBER GENERATOR
 rng = numpy.random.default_rng()
 
-# INITIAL POSITION WAVE (LONGITUDINAL)
-init_pos_wv = False
-if init_pos_wv:
-    # SET PROBABILITY DISTRIBUTIONS
-    nw = 5  # number of wavelengths to fit in the box
-    prob_list = 1 + numpy.sin(nw / length * grids.x)  # probability of particles to be in each grid cell
+# DEFAULT DENSITY DISTRIBUTIONS (UNIFORM)
+x_list = {  # list of electron positions and ion positions
+    "electron": rng.uniform(0, length, size=ne),
+    "ion": rng.uniform(0, length, size=ni)
+}
+
+# INITIAL DENSITY WAVES
+xx = numpy.linspace(0, length, int(1E8))  # evenly spaced choices of x
+for specie_key in x_list:
+    nw, amplitude = init_d_wv[specie_key]
+    prob_list = 1 + amplitude * numpy.sin(nw / length * xx)  # probability of particles to be in each grid cell
     prob_list = prob_list / sum(prob_list)  # normalized probability distribution
-    x_list = {  # list of electron positions and ion positions
-        "electron": numpy.random.choice(grids.x, ne, p=prob_list),
-        "ion": numpy.random.choice(grids.x, ni, p=prob_list)
-    }
-else:
-    x_list = {  # list of electron positions and ion positions
-        "electron": rng.uniform(0, length, size=ne),
-        "ion": rng.uniform(0, length, size=ni)
-    }
+    number = len(x_list[specie_key])  # number of particles
+    x_list[specie_key] = numpy.random.choice(xx, number, p=prob_list)
 
 # DEFAULT VELOCITY DISTRIBUTIONS (GAUSSIAN)
 v_list = {
@@ -393,13 +417,12 @@ v_list = {
     }
 }
 
-
 # INITIAL VELOCITY WAVES
 for specie_key in v_list:
     for v_key in v_list[specie_key]:
         nw, amplitude = init_v_wv[specie_key][v_key]
-        v_list[specie_key][v_key] = v_list[specie_key][v_key] + amplitude * numpy.sin(2 * math.pi * nw / length * x_list[specie_key])
-
+        v_list[specie_key][v_key] = v_list[specie_key][v_key] + amplitude * numpy.sin(
+            2 * math.pi * nw / length * x_list[specie_key])
 
 # GENERATE PARTICLES (FROM LIST OF POSITIONS AND VELOCITIES)
 if ni == 0:
@@ -419,6 +442,23 @@ else:
                        vxp=v_list["ion"]["vxp"],
                        vy=v_list["ion"]["vy"],
                        vb0=v_list["ion"]["vb0"])]
+
+# GET SAMPLE FREQUENCIES
+sample_k = 2 * math.pi * scipy.fft.rfftfreq(ng, dx)
+
+# SET SMOOTHING WEIGHT
+w_smooth = 0.5
+
+
+def smooth(fourier_plot, weight):
+    """
+    Apply smoothing function to fourier-transformed plot
+    :param fourier_plot: fourier-transformed plot to be smoothed
+    :param weight: weight of smoothing
+    :return: smoothed plot
+    """
+
+    return (1 + 2 * weight * numpy.cos(sample_k * dx)) / (1 + 2 * weight) * fourier_plot
 
 
 def initialization():
@@ -441,6 +481,7 @@ def initialization():
 
     # INITIAL FIELD SOLVER (Find Ex)
     rho_n_list = dx * scipy.fft.rfft(grids.rho)  # fourier transform, rho(x) to rho(k)
+    rho_n_list = smooth(rho_n_list, w_smooth)
     phi_n_list = numpy.concatenate(
         ([0], rho_n_list[1:] * ksqi_list / epsilon))  # calculate phi(k) from rho(k)
     phi_list = 1 / dx * scipy.fft.irfft(phi_n_list)  # inverse fourier transform, phi(k) to phi(x)
@@ -474,7 +515,7 @@ def initialization():
     # FIRST STEP IN TIME
     move_particles_init()
     weigh_to_grid()
-    solve_field()
+    # solve_field()
 
 
 def move_particles_init():
@@ -492,16 +533,16 @@ def move_particles_init():
         x_right_weight = (xi - x_left_grid) / dx
 
         # INTERPOLATION FUNCTION
-        def interpolate(value):
+        def interpolate_init(value):
             value_left = value[nearest_left_grid_point]
             new_value = value_left + x_right_weight * (value[nearest_right_grid_point] - value_left)
             return new_value
 
         # INTERPOLATE FIELD QUANTITIES FROM GRIDS TO PARTICLES
-        bz = interpolate(grids.bz)
-        ex = interpolate(grids.ex)
-        ey = interpolate(grids.ey)
-        ez = interpolate(grids.ez)
+        bz = interpolate_init(grids.bz)
+        ex = interpolate_init(grids.ex)
+        ey = interpolate_init(grids.ey)
+        ez = interpolate_init(grids.ez)
 
         # PROJECT MAGNETIC FIELD TO THE b0 DIRECTION (b0 direction = (sin(theta), cos(theta)))
         bb0 = bz * cos_theta + bx0 * sin_theta
@@ -533,7 +574,6 @@ def move_particles_init():
 
 # INTERPOLATION FUNCTION
 def interpolate(value, nearest_left_grid_point, nearest_right_grid_point, x_right_weight):
-    # print("starting interpolation")
     value_left = value[nearest_left_grid_point]
     new_value = value_left + x_right_weight * (value[nearest_right_grid_point] - value_left)
     return new_value
@@ -566,10 +606,18 @@ def move_particles():  # option="init" for initialization, otherwise, option="no
         args_interpolate = (nearest_left_grid_point, nearest_right_grid_point, x_right_weight)
 
         # INTERPOLATE FIELD QUANTITIES FROM GRIDS TO PARTICLES
-        bz = interpolate(grids.bz, *args_interpolate)
         ex = interpolate(grids.ex, *args_interpolate)
-        ey = interpolate(grids.ey, *args_interpolate)
-        ez = interpolate(grids.ez, *args_interpolate)
+
+        # INTERPOLATE ELECTROMAGNETIC FIELDS
+        ELECTROMAGNETIC = False
+        if ELECTROMAGNETIC:
+            bz = interpolate(grids.bz, *args_interpolate)
+            ey = interpolate(grids.ey, *args_interpolate)
+            ez = interpolate(grids.ez, *args_interpolate)
+        else:
+            bz = bz0
+            ey = e_ext
+            ez = 0
 
         # MULTIPROCESS = False
         # if not MULTIPROCESS:
@@ -697,6 +745,7 @@ def solve_field_x():
 
     # FOURIER TRANSFORM, FROM rho(x) TO rho(k)
     rho_n_list = dx * scipy.fft.rfft(grids.rho)
+    rho_n_list = smooth(rho_n_list, w_smooth)
     # POISSON'S EQUATION, FROM rho(k) to phi(k)
     phi_n_list = numpy.concatenate(
         ([0], rho_n_list[1:] * ksqi_list / epsilon))
@@ -750,7 +799,7 @@ def main():
         move_particles()  # move particles
         weigh_to_grid()  # weight to grid
         solve_field_x()  # solve Ex from rho (Poisson's eqn)
-        solve_field()  # solve other field quantities (Maxwell's eqn)
+        # solve_field()  # solve other field quantities (Maxwell's eqn)
 
         # PRINT REPORT EVERY 100 FRAMES
         if time_step % 100 == 0:
@@ -784,12 +833,17 @@ def main():
     print("---------------------------RUNTIME---------------------------", file=log)
     print("Duration                        = {}".format(timedelta(seconds=end_time - start_time)), file=log)
 
+    # STORE K-VALUES OF THE INITIAL DENSITY WAVES
+    init_d_k_list = []
+    for i in init_d_wv:
+        init_d_k_list.append(init_d_wv[i][0] * 2 * math.pi / length / slu)
+
     # STORE K-VALUES OF THE INITIAL VELOCITY WAVES
     init_k_list = []
-    for specie_key in init_v_wv:
+    for i in init_v_wv:
         k_temp = []
-        for v_key in init_v_wv[specie_key]:
-            k_temp.append(init_v_wv[specie_key][v_key][0] * 2 * math.pi / length / slu)
+        for j in init_v_wv[i]:
+            k_temp.append(init_v_wv[i][j][0] * 2 * math.pi / length / slu)
         init_k_list.append(k_temp)
 
     # CLOSE LOG FILE
@@ -801,7 +855,7 @@ def main():
               ng=ng, nt=nt_sample,
               smu=smu, scu=scu,
               slu=slu, stu=stu, c=c, dx=dx, dt=dt_sample, wp=wp, wpi=wpi, wc=wc, wci=wci, theta=theta, v_th=v_th,
-              vi_th=vi_th, init_k=init_k_list)
+              vi_th=vi_th, init_d_k = init_d_k_list, init_k=init_k_list)
 
 
 #  INDICES OF PARTICLES TO BE PLOTTED IN THE ANIMATION
