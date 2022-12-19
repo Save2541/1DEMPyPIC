@@ -14,6 +14,157 @@ rcParams['animation.ffmpeg_path'] = r'ffmpeg\\bin\\ffmpeg.exe'  # for saving ani
 mu = 1.26E-6
 
 
+# PLOT GRID QUANTITIES (NON-FOURIER)
+
+def plot_non_fourier(file_name, anim=True, time_step=0):
+    """
+    PLOT GRID QUANTITIES WITHOUT FOURIER TRANSFORMING
+    :param file_name: name of the file which stores the arrays.
+    :param anim: make an animation or not.
+    :param time_step: time step to be plotted, only needed if not animated.
+    :return:
+    """
+
+    # LOAD ARRAYS FROM FILE
+    loader = zarr.load('{}.zip'.format(file_name))
+    slu = loader['slu']
+    stu = loader['stu']
+    smu = loader['smu']
+    scu = loader['scu']
+    grid_x = loader['grid_x'] * slu
+    rho_list = loader['rho_list'] * scu / slu ** 3
+    ex_list = loader['ex'] * slu * smu / stu ** 2 / scu
+    ey_list = loader['ey'] * slu * smu / stu ** 2 / scu
+    ez_list = loader['ez'] * slu * smu / stu ** 2 / scu
+    by_list = loader['by'] * smu / scu / stu
+    bz_list = loader['bz'] * smu / scu / stu
+    ng = int(loader['ng'])
+    nt = int(loader['nt'])
+    dx = loader['dx'] * slu
+    dt = loader['dt'] * stu
+    x = loader['x'] * slu
+    vx = loader['vx'] * slu / stu
+    n_species = x.shape[0]
+    n_sample = x.shape[2]
+    length = ng * dx
+
+    # CANVAS
+    fig, axs = plt.subplots(3, 3)
+
+    # MERGE BOTTOM SUBPLOTS
+    gs = axs[-1, 0].get_gridspec()
+    # remove the underlying axes
+    for ax in axs[-1, :]:
+        ax.remove()
+    axbig = fig.add_subplot(gs[-1, :])
+
+    # INITIALIZE PLOTS
+    if anim:
+        time_step = 0
+
+    def y_axis_limit(value_list):
+        maximum = numpy.amax(value_list)
+        minimum = numpy.amin(value_list)
+        if minimum != maximum:
+            return [minimum, maximum]
+        else:
+            return [-1, 1]
+
+    # TOP LEFT PLOT (RHO)
+    line1, = axs[0, 0].plot(grid_x, rho_list[time_step])
+    axs[0, 0].set_title("rho")
+    axs[0, 0].set_xlabel("x (m)")
+    axs[0, 0].set_ylabel("rho (C/m^3)")
+    axs[0, 0].set_xlim([0, length])
+    axs[0, 0].set_ylim(y_axis_limit(rho_list))
+
+    # CENTER LEFT PLOT (Ex)
+    line2, = axs[1, 0].plot(grid_x, ex_list[time_step])
+    axs[1, 0].set_title("Ex")
+    axs[1, 0].set_xlabel("x (m)")
+    axs[1, 0].set_ylabel("Ex (V/m)")
+    axs[1, 0].set_xlim([0, length])
+    axs[1, 0].set_ylim(y_axis_limit(ex_list))
+
+    # BOTTOM LEFT PLOT (PHASE SPACE)
+    # line3 = axs[2].scatter(numpy.zeros(n_sample), numpy.zeros(n_sample))  # empty scatter plot
+    init_x = x[:, 0].flatten()
+    init_vx = vx[:, 0].flatten()
+    line3 = axbig.scatter(init_x, init_vx, s=1)  # draw an initial scatter plot
+    color_list = numpy.concatenate([([i] * n_sample) for i in ["black", "red"]], axis=0)
+    line3.set_facecolors(color_list)
+    axbig.set_title("Phase space")
+    axbig.set_xlabel("x (m)")
+    axbig.set_ylabel("vx (m/s)")
+    axbig.set_xlim([0, length])
+    axbig.set_ylim(y_axis_limit(vx[1]))
+
+    # TOP CENTER PLOT (By)
+    line4, = axs[0, 1].plot(grid_x, by_list[time_step])
+    axs[0, 1].set_title("By")
+    axs[0, 1].set_xlabel("x (m)")
+    axs[0, 1].set_ylabel("By (T)")
+    axs[0, 1].set_xlim([0, length])
+    axs[0, 1].set_ylim(y_axis_limit(by_list))
+
+    # CENTER PLOT (Ey)
+    line5, = axs[1, 1].plot(grid_x, ey_list[time_step])
+    axs[1, 1].set_title("Ey")
+    axs[1, 1].set_xlabel("x (m)")
+    axs[1, 1].set_ylabel("Ey (V/m)")
+    axs[1, 1].set_xlim([0, length])
+    axs[1, 1].set_ylim(y_axis_limit(ey_list))
+
+    # TOP LEFT PLOT (Bz)
+    line6, = axs[0, 2].plot(grid_x, bz_list[time_step])
+    axs[0, 2].set_title("Bz")
+    axs[0, 2].set_xlabel("x (m)")
+    axs[0, 2].set_ylabel("Bz (T)")
+    axs[0, 2].set_xlim([0, length])
+    axs[0, 2].set_ylim(y_axis_limit(bz_list))
+
+    # CENTER RIGHT PLOT (Ez)
+    line7, = axs[1, 2].plot(grid_x, ez_list[time_step])
+    axs[1, 2].set_title("Ez")
+    axs[1, 2].set_xlabel("x (m)")
+    axs[1, 2].set_ylabel("Ez (V/m)")
+    axs[1, 2].set_xlim([0, length])
+    axs[1, 2].set_ylim(y_axis_limit(ez_list))
+
+    # PREVENT PLOT OVERLAPS
+    plt.tight_layout()
+
+    if anim:
+        # CREATE A LIST OF LINES
+        line = [line1, line2, line3, line4, line5, line6, line7]
+
+        def animate(frame_number):
+            frame_number = frame_number * 16
+            line[0].set_ydata(rho_list[frame_number])
+            line[1].set_ydata(ex_list[frame_number])
+            new_x = x[:, frame_number].flatten()
+            new_vx = vx[:, frame_number].flatten()
+            line[2].set_offsets(numpy.column_stack((new_x, new_vx)))
+            line[3].set_ydata(by_list[frame_number])
+            line[4].set_ydata(ey_list[frame_number])
+            line[5].set_ydata(bz_list[frame_number])
+            line[6].set_ydata(ez_list[frame_number])
+            return line
+
+        # CREATE ANIMATION
+        animation = FuncAnimation(fig, animate, save_count=nt//16)
+
+        # SAVE ANIMATION
+        f = "{}_anim.mp4"
+        writervideo = FFMpegWriter(fps=240)
+        animation.save(f.format(file_name), writer=writervideo)
+        plt.close()
+
+    else:
+        # SHOW PLOT
+        plt.show()
+
+
 # PHASE SPACE ANIMATION PLOTTING PROGRAM
 def plot_phase_space_animation(file_name, specie):
     """PLOT PHASE SPACE ANIMATION
@@ -31,7 +182,7 @@ def plot_phase_space_animation(file_name, specie):
     x = loader['x'] * slu
     vx = loader['vx'] * slu / stu
     dx = loader['dx'] * slu
-    dt = loader['dt'] * stu / 10**-3
+    dt = loader['dt'] * stu / 10 ** -3
     v_th = loader['v_th'] * slu / stu
     vi_th = loader['vi_th'] * slu / stu
     length = ng * dx
@@ -114,12 +265,12 @@ def plot(file_name, specie, field):
     stu = loader['stu']
     smu = loader['smu']
     scu = loader['scu']
-    ex_list = loader['ex'] * slu * smu * stu / stu**3 / scu
-    ey_list = loader['ey'] * slu * smu * stu / stu**3 / scu
-    ez_list = loader['ez'] * slu * smu * stu / stu**3 / scu
+    ex_list = loader['ex'] * slu * smu / stu ** 2 / scu
+    ey_list = loader['ey'] * slu * smu / stu ** 2 / scu
+    ez_list = loader['ez'] * slu * smu / stu ** 2 / scu
     by_list = loader['by'] * smu / scu / stu
     bz_list = loader['bz'] * smu / scu / stu
-    rho_list = loader['rho_list']
+    rho_list = loader['rho_list'] * scu / slu ** 3
     ng = int(loader['ng'])
     nt = int(loader['nt'])
     b0 = loader['b0'] * smu / scu / stu
@@ -142,7 +293,7 @@ def plot(file_name, specie, field):
     print(init_k)
 
     # k-DOMAIN FOR THEORETICAL WAVE PLOTS
-    k_list = numpy.arange(0.0, math.pi / dx, math.pi / length)
+    k_list = numpy.linspace(0.0, math.pi / dx, ng)
 
     # alfven_omega_list = (b0) / numpy.sqrt(mu * np / 2 / length * mi) * omega_list
 
@@ -177,7 +328,7 @@ def plot(file_name, specie, field):
             ex_omega_list = numpy.sqrt(wci * wc + k_list ** 2 * v_s2)
             # Ey: MAGNETOSONIC WAVE
             ey_k_list = k_list
-            ey_omega_list = k_list * c * math.sqrt((v_s2 ** 2 + v_a ** 2) / (c ** 2 + v_a ** 2))
+            ey_omega_list = k_list * c * math.sqrt((v_s2 + v_a ** 2) / (c ** 2 + v_a ** 2))
             # Ez: MAGNETOSONIC WAVE
             ez_k_list = k_list
             ez_omega_list = ey_omega_list
@@ -215,8 +366,9 @@ def plot(file_name, specie, field):
             # Ex: ELECTROSTATIC ELECTRON WAVES (UPPER HYBRID OSCILLATIONS)
             ex_k_list = k_list
             ex_omega_list = numpy.sqrt(wp ** 2 + wc ** 2 + 3 / 2 * k_list ** 2 * v_th ** 2)
+            print(numpy.sqrt(wp ** 2 + wc ** 2))
             # Ey: EXTRAORDINARY WAVES
-            ey_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
+            ey_omega_list = numpy.linspace(0, math.pi / dt, nt)
             ey_k_list = numpy.sqrt(ey_omega_list ** 2 - wp ** 2 * (
                     (ey_omega_list ** 2 - wp ** 2) / (ey_omega_list ** 2 - wp ** 2 - wc ** 2))) / c
             # Ez: ORDINARY WAVES
@@ -227,7 +379,7 @@ def plot(file_name, specie, field):
             ex_k_list = k_list
             ex_omega_list = numpy.sqrt(wp ** 2 + 3 / 2 * (k_list ** 2) * (v_th ** 2))
             # Ey: L WAVE
-            ey_omega_list = numpy.arange(0, math.pi / dt, math.pi / dt / nt / 10000)
+            ey_omega_list = numpy.linspace(0, math.pi / dt, nt)
             ey_k_list = numpy.sqrt(ey_omega_list ** 2 - wp ** 2 / (1 + wc / ey_omega_list)) / c
             # Ez: R WAVE
             ez_omega_list = ey_omega_list
@@ -307,7 +459,7 @@ def plot(file_name, specie, field):
         :return: smoothed plot
         """
 
-        return (1 + 2 * weight * numpy.cos(k_array * dx))/(1 + 2 * weight) * fourier_plot
+        return (1 + 2 * weight * numpy.cos(k_array * dx)) / (1 + 2 * weight) * fourier_plot
 
     # SMOOTH PLOTS
     w_smooth = 0.5
@@ -330,33 +482,39 @@ def plot(file_name, specie, field):
         dx = (xcoords[-1] - xcoords[0]) / Nx
         dy = (ycoords[-1] - ycoords[0]) / Ny
         return numpy.array([*(xcoords[0] + numpy.array([0 - dx / 2, dx * Nx + dx / 2])),
-                         *(ycoords[0] + numpy.array([0 - dy / 2, dy * Ny + dy / 2]))])
+                            *(ycoords[0] + numpy.array([0 - dy / 2, dy * Ny + dy / 2]))])
 
     # GET PLOT EXTENT
-    sample_omega = sample_omega[0:nt//2]
+    sample_omega = sample_omega[0:nt // 2]
     extent = extent_function(sample_k, sample_omega)
-    #extent = [sample_k[0], sample_k[-1], sample_omega[0], -sample_omega[nt // 2]]
+    # extent = [sample_k[0], sample_k[-1], sample_omega[0], -sample_omega[nt // 2]]
     y_max = nt // 2 + 1
 
     # PLOT SPECTRA
+    maximum = math.ceil(math.log10(numpy.amax(ex_omega_k_list[1:])))
     shw1 = ax1.imshow(ex_omega_k_list[0:y_max], cmap='plasma',
-                      norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ex_omega_k_list[1]))) - 2),
-                                   vmax=10 ** math.ceil(math.log10(max(ex_omega_k_list[1])))),
-                      #norm=LogNorm(vmin=10**-1, vmax=1),
+                      norm=LogNorm(vmin=10 ** (maximum - 4),
+                                   vmax=10 ** maximum),
                       origin='lower',
                       extent=extent,
                       aspect='auto', interpolation='none')
+    try:
+        maximum = math.ceil(math.log10(numpy.amax(ey_omega_k_list[1:])))
+    except ValueError:
+        maximum = 0
     shw2 = ax2.imshow(ey_omega_k_list[0:y_max], cmap='plasma',
-                      #norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ey_omega_k_list[1]))) - 2),
-                      #             vmax=10 ** math.ceil(math.log10(max(ey_omega_k_list[1])))),
-                      norm=LogNorm(vmin=10**-2, vmax=10**-1),
+                      norm=LogNorm(vmin=10 ** (maximum - 4),
+                                   vmax=10 ** maximum),
                       origin='lower',
                       extent=extent,
                       aspect='auto', interpolation='none')
+    try:
+        maximum = math.ceil(math.log10(numpy.amax(ez_omega_k_list[1:])))
+    except ValueError:
+        maximum = 0
     shw3 = ax3.imshow(ez_omega_k_list[0:y_max], cmap='plasma',
-                      #norm=LogNorm(vmin=10 ** (math.ceil(math.log10(max(ez_omega_k_list[1]))) - 2),
-                      #             vmax=10 ** math.ceil(math.log10(max(ez_omega_k_list[1])))),
-                      norm=LogNorm(vmin=10 ** -2, vmax=10 ** -1),
+                      norm=LogNorm(vmin=10 ** (maximum - 4),
+                                   vmax=10 ** maximum),
                       origin='lower',
                       extent=extent,
                       aspect='auto', interpolation='none')
@@ -410,32 +568,30 @@ def plot(file_name, specie, field):
     left, right = plt.xlim()  # get current left and right limit
     bottom, top = plt.ylim()  # get current left and right limit
     # right = 4 * math.sqrt(wp**2 + wc**2)  # set plot limit to 4x the plasma frequency
-    if specie == 'electron': #"ion":
-        height = top #1E6  # 5.64E5  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
-        width = right #0.5
+    if specie == "ion" or specie == "electron":
+        height = 1E8  # 5.64E5  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
+        width = 2
     else:
         height = min(math.sqrt(wp ** 2 + wc ** 2) * 20, top)  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
         width = height / c  # plot width
 
     # CROP PLOTS
-    # ax1.set_xlim(right=width)  # set x limit for left plot
-    # ax1.set_ylim(top=height)  # set y limit for left plot
-    # ax2.set_xlim(right=width)  # set x limit for middle plot
-    # ax2.set_ylim(top=height)  # set y limit for middle plot
-    # ax3.set_xlim(right=width)  # set x limit for right plot
-    # ax3.set_ylim(top=height)  # set y limit for right plot
-    # plt.xlim([0, 2 * math.pi * ng / 2 / length])
-    # plt.ylim([0, 2 * math.pi * nt / 2 / (dt * nt)])
+    ax1.set_xlim(right=width)  # set x limit for left plot
+    ax1.set_ylim(top=height)  # set y limit for left plot
+    ax2.set_xlim(right=width)  # set x limit for middle plot
+    ax2.set_ylim(top=height)  # set y limit for middle plot
+    ax3.set_xlim(right=width)  # set x limit for right plot
+    ax3.set_ylim(top=height)  # set y limit for right plot
 
     # PREVENT PLOT OVERLAPS
     plt.tight_layout()
 
     plt.savefig('{}_{}.png'.format(field, file_name))  # save figure
-    #plt.show()  # show figure
+    # plt.show()  # show figure
 
 
 # RUN MAIN PROGRAM
-#plot("20221013-122755_ni1e+08_ti1e+04_te1e+05_b00e+00_theta90", "ion", "rho")
+# plot("20221013-122755_ni1e+08_ti1e+04_te1e+05_b00e+00_theta90", "ion", "rho")
 
 # RUN PROGRAM WITH PROFILER
 if __name__ == '__main__':
@@ -444,9 +600,11 @@ if __name__ == '__main__':
 
     profiler = cProfile.Profile()
     profiler.enable()
-    file = "20221025-161417_ne1e+08_te1e+05_b00e+00_theta90"
-    plot(file, "electron", "rho")
-    #plot_phase_space_animation(file, "ion")
+    file_list = ["20221209-141628_ni1e+08_ti1e+04_te1e+04_b01e-04_theta0"]
+    for file in file_list:
+        #plot_non_fourier(file)
+        plot(file, "electron", "rho")
+        # plot_phase_space_animation(file, "ion")
     profiler.disable()
     s = io.StringIO()
     stats = pstats.Stats(profiler, stream=s).sort_stats('tottime')

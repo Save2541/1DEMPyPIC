@@ -5,6 +5,15 @@ from datetime import timedelta
 import numpy
 import scipy.fft
 import zarr
+import particle_list
+import grid_list
+import field_solver
+import particle_mover
+import digital_filtering
+import particles_to_grids
+
+# TURN ELECTROMAGNETIC ON OR OFF
+is_electromagnetic = True
 
 # GET STARTING TIME
 start_time = time.monotonic()
@@ -27,12 +36,12 @@ kb = 1.38E-23  # Boltzmann constant
 # PLASMA SPECIFICATIONS
 n0 = 1E8  # plasma electron density (1/m^3)
 n0i = n0  # plasma ion density (1/m^3)
-te = 1E5  # electron temperature (K)
-ti = 1E4  # ion temperature (K)
+te = 1E4  # electron temperature (K)
+ti = 1E4  # 1E4  # ion temperature (K)
 
 # EXTERNAL MAGNETIC FIELD SPECIFICATIONS (VECTOR ON X-Z PLANE)
-b0 = 0  # 0.01E-5  # magnetic field strength (T)
-theta = math.pi / 2  # magnetic field angle (rad) (e.g., 0 is along +z-axis, Pi/2 is along +x-axis)
+b0 = 1E-4  # 10 * 0.01E-5  # magnetic field strength (T)
+theta = 0 # math.pi / 2  # magnetic field angle (rad) (e.g., 0 is along +z-axis, Pi/2 is along +x-axis)
 sin_theta = math.sin(theta)
 cos_theta = math.cos(theta)
 
@@ -52,12 +61,13 @@ v_th = math.sqrt(2 * kte / me_real)  # electron thermal velocity (m/s)
 vi_th = math.sqrt(2 * kti / mi_real)  # ion thermal velocity (m/s)
 lambda_d = v_th / math.sqrt(2) / wp  # Debye length (m)
 rho_mass = n0 * me_real + n0i * mi_real  # mass density
+sqrt_mu_over_epsilon = math.sqrt(mu / epsilon)  # square root mu naught over epsilon naught
 
 # SIMULATION SPECIFICATIONS
-ng = 2048  # 1024  # 4096 # number of grids (please use powers of 2 e.g. 4, 8, 1024)
+ng = 256  # 4096 # number of grids (please use powers of 2 e.g. 4, 8, 1024)
 nt = 16384  # 64 * 16384  # number of time steps to run
 ne = ng * 10  # ng * 100  # number of PIC electrons
-ni = 0 #ne  # number of PIC ions
+ni = ne  # number of PIC ions
 np = ne + ni  # number of PIC particles
 
 # INITIAL DENSITY WAVES (LONGITUDINAL)
@@ -215,16 +225,22 @@ print("z-Magnetic field                                 = {:.2e}".format(bz0), f
 print("y-Electric field                                 = {:.2e}".format(e_ext), file=log)
 
 # GRID SIZES
-dx = lambda_d  # spatial grid size
+dx = lambda_d / 2  # spatial grid size
 length = ng * dx  # length of the system
-dt = 200 * dx / c  # duration of time step
+dt = dx / c  # 73 # duration of time step
+
+print("wp = ", wp, ". wc = ", wc, ".")
+if wp * dt > 0.3:
+    print("WARNING: TIME STEP TOO LARGE! TO GET AN ACCURATE RESULT, USE dt <= ", 0.3 / wp / dx * c, " * dx / c.")
+if wc * dt >= 0.35:
+    print("WARNING: MAGNETIC FIELD IS TOO STRONG! TO GET AN ACCURATE RESULT, USE B_0 < ", wc / qm * smu / scu / stu,
+          " T.")
 
 # PROPERTIES OF PIC PARTICLES
 qe = wp ** 2 * length / ne * epsilon / qm  # charge per PIC particle
 me = qe / qm
-if ni > 0:
-    qi = wpi ** 2 * length / ni * epsilon / qmi
-    mi = qi / qmi
+qi = wpi ** 2 * length / ni * epsilon / qmi
+mi = qi / qmi
 
 # print text to log
 print("---------------------------SIMULATION GRID PROPERTIES---------------------------", file=log)
@@ -258,132 +274,16 @@ assert v_th < c, "ELECTRON THERMAL VELOCITY GREATER THAN THE SPEED OF LIGHT!"
 assert vi_th < c, "ION THERMAL VELOCITY GREATER THAN THE SPEED OF LIGHT!"
 
 # PLOT SPECIFICATIONS
-n_sample = min(ne, ni, ng)  # number of particles to plot per specie
-nt_sample = max(nt // 1024, nt)  # ng * 32  # how many time steps to store (use powers of 2)
+n_sample = min(ne, ng)  # number of particles to plot per specie
+nt_sample = 16384  # ng * 32  # how many time steps to store (use powers of 2)
 assert nt_sample <= nt, "NOT ENOUGH TIME STEPS TO STORE!"
 dt_sample = dt * nt / nt_sample  # duration per sample
 
-
-# DEFINE CLASS TO STORE GRID DATA
-class GridPointList:
-    def __init__(self, x, rho=numpy.zeros(ng), jy_old=numpy.zeros(ng), jy=numpy.zeros(ng), jz_old=numpy.zeros(ng),
-                 jz=numpy.zeros(ng), ex=numpy.zeros(ng), ey=numpy.zeros(ng), ez=numpy.zeros(ng),
-                 by=numpy.zeros(ng),
-                 bz=numpy.zeros(ng) + bz0,
-                 phi=numpy.zeros(ng),
-                 f_right_old=numpy.zeros(ng) + (epsilon * e_ext + math.sqrt(epsilon / mu) * bz0) / 2,
-                 f_left_old=numpy.zeros(ng) + (epsilon * e_ext - math.sqrt(epsilon / mu) * bz0) / 2,
-                 f_right=numpy.zeros(ng) + (epsilon * e_ext + math.sqrt(epsilon / mu) * bz0) / 2,
-                 f_left=numpy.zeros(ng) + (epsilon * e_ext - math.sqrt(epsilon / mu) * bz0) / 2,
-                 g_right_old=numpy.zeros(ng) + 0.0,
-                 g_left_old=numpy.zeros(ng) + 0.0,
-                 g_right=numpy.zeros(ng) + 0.0, g_left=numpy.zeros(ng) + 0.0):
-        self.x = x  # position of the grid point
-        self.n = x / length * ng  # grid number
-        self.rho = rho  # charge density
-        self.jy_old = jy_old  # previous current density y
-        self.jy = jy  # current current density y
-        self.jz_old = jz_old  # previous current density z
-        self.jz = jz  # current current density z
-        self.ex = ex  # electric field x
-        self.ey = ey  # electric field y
-        self.ez = ez  # electric field z
-        self.by = by  # magnetic field y
-        self.bz = bz  # magnetic field z (or direction b0 if theta != 0)
-        self.phi = phi  # electric potential
-        self.f_right_old = f_right_old  # right going field quantity F, previous
-        self.f_left_old = f_left_old  # left going field quantity F, previous
-        self.f_right = f_right  # right going field quantity F, current
-        self.f_left = f_left  # left going field quantity F, current
-        self.g_right_old = g_right_old  # right going field quantity G, previous
-        self.g_left_old = g_left_old  # left going field quantity G, previous
-        self.g_right = g_right  # right going field quantity G, current
-        self.g_left = g_left  # left going field quantity G, current
-
-    # Field quantities: F_right/left = 1/2*[Ey (+/-) Bz], G_right/left = 1/2*[Ez (-/+) By]
-
-    # PRINT INFO
-    def print(self, t):
-        # PICK EXAMPLE GRID TO PRINT
-        index = 1
-        print(
-            "Time = {}. Grid: {}. rho = {:.2e}. j = ({:.2e}, {:.2e}). e = ({:.2e}, {:.2e}, {:.2e}). b = ({:.2e}, "
-            "{:.2e}, {:.2e}). (f_left, f_right) = ({:.2e}, {:.2e}). (g_left, g_right) = ({:.2e}, {:.2e}).".format(
-                t, int(self.n[index]), self.rho[index], self.jy[index], self.jz[index], self.ex[index], self.ey[index],
-                self.ez[index], bx0, self.by[index], self.bz[index],
-                self.f_left[index], self.f_right[index], self.g_left[index], self.g_right[index]))
-
-
-# DEFINE CLASS TO STORE PARTICLE DATA
-class ParticleList:
-    def __init__(self, x, vy=numpy.zeros(ne), vxp=numpy.zeros(ne), vb0=numpy.zeros(ne),
-                 x_old=numpy.zeros(ne), vx_old=numpy.zeros(ne), vy_old=numpy.zeros(ne),
-                 vxp_old=numpy.zeros(ne), vb0_old=numpy.zeros(ne), left_grid=numpy.zeros(ne),
-                 left_grid_old=numpy.zeros(ne)):
-        self.x = x  # position at current time
-        self.vx = vxp * cos_theta + vb0 * sin_theta  # vx at current time
-        self.vx_old = vx_old  # vx from the previous time step
-        self.vy = vy  # vy at current time
-        self.vb0 = vb0  # vb0 at current time (parallel to b0)
-        self.vxp = vxp  # vx' at current time (perpendicular to b0)
-        self.x_old = x_old  # position from the previous time step
-        self.vy_old = vy_old  # vy from the previous time step
-        self.vxp_old = vxp_old  # vxp from the previous time step
-        self.vb0_old = vb0_old  # vb0 from the previous time step
-        self.v = numpy.sqrt(vxp ** 2 + vy ** 2 + vb0 ** 2)
-        self.v_old = numpy.sqrt(vxp_old ** 2 + vy_old ** 2 + vb0_old ** 2)
-        self.left_grid = left_grid  # nearest left grid
-        self.left_grid_old = left_grid_old  # old nearest left grid
-
-    # FUNCTION TO UPDATE THE NEAREST LEFT GRIDS OF THE PARTICLES
-    def update_nearest_grid(self):
-        floored = numpy.floor(self.x / dx).astype(int)
-        self.left_grid_old = self.left_grid
-        self.left_grid = floored
-
-    # FUNCTION TO OUTPUT THE NEAREST LEFT AND RIGHT GRIDS OF THE PARTICLES
-    def nearest_grids(self):
-        left = self.left_grid
-        right = left + 1
-        right[right == ng] = 0
-        return left, right
-
-    # FUNCTION TO OUTPUT THE NEAREST OLD LEFT AND RIGHT GRIDS OF THE PARTICLES
-    def nearest_grids_old(self):
-        left_old = self.left_grid_old
-        right_old = left_old + 1
-        right_old[right_old == ng] = 0
-        return left_old, right_old
-
-
-# DEFINE CLASS TO STORE PIC ELECTRON DATA
-class ElectronList(ParticleList):
-    def __init__(self, x, vy=numpy.zeros(ne), vxp=numpy.zeros(ne), vb0=numpy.zeros(ne),
-                 x_old=numpy.zeros(ne), vx_old=numpy.zeros(ne), vy_old=numpy.zeros(ne),
-                 vxp_old=numpy.zeros(ne),
-                 vb0_old=numpy.zeros(ne), left_grid=numpy.zeros(ne), left_grid_old=numpy.zeros(ne)):
-        super().__init__(x, vy, vxp, vb0, x_old, vx_old, vy_old, vxp_old, vb0_old, left_grid, left_grid_old)
-        self.q = -qe  # PIC electron charge
-        self.m = me  # PIC electron mass
-        self.qm = -qm  # electron charge-to-mass ratio
-        self.type = "electron"  # PIC electron type
-
-
-# DEFINE CLASS TO STORE PIC ION DATA
-class IonList(ParticleList):
-    def __init__(self, x, vy=numpy.zeros(ni), vxp=numpy.zeros(ni), vb0=numpy.zeros(ni),
-                 x_old=numpy.zeros(ni), vx_old=numpy.zeros(ni), vy_old=numpy.zeros(ni),
-                 vxp_old=numpy.zeros(ni),
-                 vb0_old=numpy.zeros(ni), left_grid=numpy.zeros(ni), left_grid_old=numpy.zeros(ni)):
-        super().__init__(x, vy, vxp, vb0, x_old, vx_old, vy_old, vxp_old, vb0_old, left_grid, left_grid_old)
-        self.q = qi  # PIC ion charge
-        self.m = mi  # PIC ion mass
-        self.qm = qmi  # ion charge-to-mass ratio
-        self.type = "ion"  # PIC ion type
-
+# ARGUMENTS TO BE SENT TO GRID GENERATORS
+args_grid = (ng, epsilon, mu, bz0, e_ext)
 
 # GENERATE GRID POINTS (FROM LIST OF POSITIONS)
-grids = GridPointList(numpy.arange(0, length, dx))
+grids = grid_list.GridPointList(numpy.arange(0, length, dx), *args_grid)
 
 # CONSTRUCT A RANDOM NUMBER GENERATOR
 rng = numpy.random.default_rng()
@@ -398,7 +298,8 @@ x_list = {  # list of electron positions and ion positions
 xx = numpy.linspace(0, length, int(1E8))  # evenly spaced choices of x
 for specie_key in x_list:
     nw, amplitude = init_d_wv[specie_key]
-    prob_list = 1 + amplitude * numpy.sin(nw / length * xx)  # probability of particles to be in each grid cell
+    prob_list = 1 + amplitude * numpy.sin(
+        2 * math.pi * nw / length * xx)  # probability of particles to be in each grid cell
     prob_list = prob_list / sum(prob_list)  # normalized probability distribution
     number = len(x_list[specie_key])  # number of particles
     x_list[specie_key] = numpy.random.choice(xx, number, p=prob_list)
@@ -424,24 +325,31 @@ for specie_key in v_list:
         v_list[specie_key][v_key] = v_list[specie_key][v_key] + amplitude * numpy.sin(
             2 * math.pi * nw / length * x_list[specie_key])
 
+# ARGUMENTS TO BE SENT TO PARTICLE GENERATORS
+args_e_list = (ne, qe, me, qm)
+args_i_list = (ni, qi, mi, qmi)
+
 # GENERATE PARTICLES (FROM LIST OF POSITIONS AND VELOCITIES)
 if ni == 0:
-    species = [ElectronList(x_list["electron"],  # uniform position distribution
-                            # gaussian velocity distribution
-                            vxp=v_list["electron"]["vxp"],
-                            vy=v_list["electron"]["vy"],
-                            vb0=v_list["electron"]["vb0"])]
+    species = [particle_list.ElectronList(x_list["electron"],  # uniform position distribution
+                                          *args_e_list,
+                                          # gaussian velocity distribution
+                                          vxp=v_list["electron"]["vxp"],
+                                          vy=v_list["electron"]["vy"],
+                                          vb0=v_list["electron"]["vb0"])]
 else:
-    species = [ElectronList(x_list["electron"],  # uniform position distribution
-                            # gaussian velocity distribution
-                            vxp=v_list["electron"]["vxp"],
-                            vy=v_list["electron"]["vy"],
-                            vb0=v_list["electron"]["vb0"]),
-               IonList(x_list["ion"],  # uniform position distribution
-                       # gaussian velocity distribution
-                       vxp=v_list["ion"]["vxp"],
-                       vy=v_list["ion"]["vy"],
-                       vb0=v_list["ion"]["vb0"])]
+    species = [particle_list.ElectronList(x_list["electron"],  # uniform position distribution
+                                          *args_e_list,
+                                          # gaussian velocity distribution
+                                          vxp=v_list["electron"]["vxp"],
+                                          vy=v_list["electron"]["vy"],
+                                          vb0=v_list["electron"]["vb0"]),
+               particle_list.IonList(x_list["ion"],  # uniform position distribution
+                                     *args_i_list,
+                                     # gaussian velocity distribution
+                                     vxp=v_list["ion"]["vxp"],
+                                     vy=v_list["ion"]["vy"],
+                                     vb0=v_list["ion"]["vb0"])]
 
 # GET SAMPLE FREQUENCIES
 sample_k = 2 * math.pi * scipy.fft.rfftfreq(ng, dx)
@@ -450,25 +358,14 @@ sample_k = 2 * math.pi * scipy.fft.rfftfreq(ng, dx)
 w_smooth = 0.5
 
 
-def smooth(fourier_plot, weight):
-    """
-    Apply smoothing function to fourier-transformed plot
-    :param fourier_plot: fourier-transformed plot to be smoothed
-    :param weight: weight of smoothing
-    :return: smoothed plot
-    """
-
-    return (1 + 2 * weight * numpy.cos(sample_k * dx)) / (1 + 2 * weight) * fourier_plot
-
-
-def initialization():
+def initialize():
     # INITIAL WEIGHTING (x to rho, hat function)
 
     for specie in species:  # loop for each specie
         # UPDATE NEAREST GRIDS
-        specie.update_nearest_grid()
+        specie.update_nearest_grid(dx)
         # GET NEAREST GRIDS
-        nearest_left_grid, nearest_right_grid = specie.nearest_grids()
+        nearest_left_grid, nearest_right_grid = specie.nearest_grids(ng)
         # GET POSITIONS
         x_left_grid = grids.x[nearest_left_grid]  # get the positions of the nearest left grids
         xi = specie.x  # get particle positions
@@ -481,9 +378,9 @@ def initialization():
 
     # INITIAL FIELD SOLVER (Find Ex)
     rho_n_list = dx * scipy.fft.rfft(grids.rho)  # fourier transform, rho(x) to rho(k)
-    rho_n_list = smooth(rho_n_list, w_smooth)
+    rho_n_list = digital_filtering.smooth(rho_n_list, sample_k, dx, w_smooth)
     phi_n_list = numpy.concatenate(
-        ([0], rho_n_list[1:] * ksqi_list / epsilon))  # calculate phi(k) from rho(k)
+        ([0], rho_n_list[1:] * ksqi_over_epsilon))  # calculate phi(k) from rho(k)
     phi_list = 1 / dx * scipy.fft.irfft(phi_n_list)  # inverse fourier transform, phi(k) to phi(x)
     # CALCULATE E(x) FROM phi(x)
     grids.ex = (numpy.roll(phi_list, 1) - numpy.roll(phi_list, -1)) / 2 / dx
@@ -495,7 +392,7 @@ def initialization():
         cos_d_theta = numpy.cos(d_theta)  # cosine of d_theta
         sin_d_theta = numpy.sin(d_theta)  # sine of d_theta
         # GET NEAREST GRIDS
-        nearest_left_grid_point, nearest_right_grid_point = specie.nearest_grids()
+        nearest_left_grid_point, nearest_right_grid_point = specie.nearest_grids(ng)
         # GET POSITIONS
         xi = specie.x  # get particle positions
         x_right_grid = grids.x[nearest_left_grid_point] + dx  # get the positions of nearest right grids
@@ -510,300 +407,58 @@ def initialization():
     # STORE INITIAL DATA FOR PHASE SPACE PLOT
     for i in range(len(species)):
         x_data[i][0] = species[i].x[plot_particles_id]
-        v_data[i][0] = species[i].vx[plot_particles_id]
+        v_data[i][0] = species[i].vx(sin_theta, cos_theta)[plot_particles_id]
 
     # FIRST STEP IN TIME
-    move_particles_init()
-    weigh_to_grid()
-    # solve_field()
+    particle_mover.move_particles_init(species, grids, dx, dt, ng, length, bx0, sin_theta, cos_theta, bz0, e_ext, is_electromagnetic)
+    particles_to_grids.weigh_to_grid(grids, species, ng, dx, sin_theta, cos_theta)
+    if is_electromagnetic:
+        field_solver.solve_field(grids, dt, epsilon, sqrt_mu_over_epsilon)
+
+    # STORE THE E FIELD FOR PLOTTING
+    ex_list[0] = grids.ex
+    ey_list[0] = grids.ey
+    ez_list[0] = grids.ez
+    # STORE THE B FIELD FOR PLOTTING
+    by_list[0] = grids.by
+    bz_list[0] = grids.bz
+    # STORE RHO FOR PLOTTING
+    rho_list[0] = grids.rho
 
 
-def move_particles_init():
-    """Particle mover for the first time step"""
-    for specie in species:  # loop for each specie
-        specie.x_old = specie.x  # store previous positions
-        q_by_m = specie.qm  # get the charge-per-mass ratio
-        # GET NEAREST GRIDS
-        nearest_left_grid_point, nearest_right_grid_point = specie.nearest_grids()
-        # GET POSITIONS
-        xi = specie.x  # get particle positions
-        x_left_grid = grids.x[nearest_left_grid_point]  # get nearest left grid positions
-
-        # WEIGHT FOR INTERPOLATION
-        x_right_weight = (xi - x_left_grid) / dx
-
-        # INTERPOLATION FUNCTION
-        def interpolate_init(value):
-            value_left = value[nearest_left_grid_point]
-            new_value = value_left + x_right_weight * (value[nearest_right_grid_point] - value_left)
-            return new_value
-
-        # INTERPOLATE FIELD QUANTITIES FROM GRIDS TO PARTICLES
-        bz = interpolate_init(grids.bz)
-        ex = interpolate_init(grids.ex)
-        ey = interpolate_init(grids.ey)
-        ez = interpolate_init(grids.ez)
-
-        # PROJECT MAGNETIC FIELD TO THE b0 DIRECTION (b0 direction = (sin(theta), cos(theta)))
-        bb0 = bz * cos_theta + bx0 * sin_theta
-        # CALCULATE ROTATION ANGLE
-        d_theta = - q_by_m * bb0 * (dt / 2)
-        sin_d_theta = numpy.sin(d_theta)
-        cos_d_theta = numpy.cos(d_theta)
-        # CALCULATE HALF ACCELERATION IN xp AND y DIRECTION
-        half_acceleration_xp = (q_by_m * (ex * cos_theta - ez * sin_theta) * (dt / 2))
-        half_acceleration_y = (q_by_m * ey * (dt / 2))
-        # CALCULATE FULL ACCELERATION IN b0 DIRECTION
-        full_acceleration_b0 = (q_by_m * (ex * sin_theta + ez * cos_theta) * dt)
-        # ADD HALF ACCELERATIONS TO CORRESPONDING VELOCITIES
-        vxp_1 = specie.vxp_old + half_acceleration_xp
-        vy_1 = specie.vy_old + half_acceleration_y
-        # APPLY ROTATION AND HALF ACCELERATIONS
-        specie.vxp = (cos_d_theta * vxp_1 - sin_d_theta * vy_1) + half_acceleration_xp
-        specie.vy = (sin_d_theta * vxp_1 + cos_d_theta * vy_1) + half_acceleration_y
-        # APPLY FULL ACCELERATION FOR vb0
-        specie.vb0 = specie.vb0_old + full_acceleration_b0
-        # MOVE X
-        specie.x = numpy.fmod(
-            (specie.vxp * cos_theta + specie.vb0 * sin_theta) * dt + specie.x_old, length)
-        # MAKE SURE THAT 0 < X < LENGTH
-        specie.x[specie.x < 0] += length
-        # UPDATE NEAREST GRIDS
-        specie.update_nearest_grid()
-
-
-# INTERPOLATION FUNCTION
-def interpolate(value, nearest_left_grid_point, nearest_right_grid_point, x_right_weight):
-    value_left = value[nearest_left_grid_point]
-    new_value = value_left + x_right_weight * (value[nearest_right_grid_point] - value_left)
-    return new_value
-
-
-def move_particles():  # option="init" for initialization, otherwise, option="normal"
-    """Particle mover"""
-    for specie in species:  # loop for each specie
-        specie.x_old = specie.x  # store previous positions
-        # STORE PREVIOUS VELOCITIES
-        specie.vy_old = specie.vy
-        specie.vxp_old = specie.vxp
-        specie.vb0_old = specie.vb0
-        q_by_m = specie.qm  # get the charge-per-mass ratio
-        # GET NEAREST GRIDS
-        nearest_left_grid_point, nearest_right_grid_point = specie.nearest_grids()
-        # GET POSITIONS
-        xi = specie.x  # get particle positions
-        x_left_grid = grids.x[nearest_left_grid_point]  # get nearest left grid positions
-
-        # WEIGHT FOR INTERPOLATION
-        x_right_weight = (xi - x_left_grid) / dx
-
-        # INTERPOLATION FUNCTION
-        # def interpolate(value):
-        #    value_left = value[nearest_left_grid_point]
-        #    new_value = value_left + x_right_weight * (value[nearest_right_grid_point] - value_left)
-        #    return new_value
-
-        args_interpolate = (nearest_left_grid_point, nearest_right_grid_point, x_right_weight)
-
-        # INTERPOLATE FIELD QUANTITIES FROM GRIDS TO PARTICLES
-        ex = interpolate(grids.ex, *args_interpolate)
-
-        # INTERPOLATE ELECTROMAGNETIC FIELDS
-        ELECTROMAGNETIC = False
-        if ELECTROMAGNETIC:
-            bz = interpolate(grids.bz, *args_interpolate)
-            ey = interpolate(grids.ey, *args_interpolate)
-            ez = interpolate(grids.ez, *args_interpolate)
-        else:
-            bz = bz0
-            ey = e_ext
-            ez = 0
-
-        # MULTIPROCESS = False
-        # if not MULTIPROCESS:
-        #     bz = interpolate(grids.bz, *args_interpolate)
-        #     ex = interpolate(grids.ex, *args_interpolate)
-        #     ey = interpolate(grids.ey, *args_interpolate)
-        #     ez = interpolate(grids.ez, *args_interpolate)
-        # else:
-        #     import multiprocessing as mp
-        #     with mp.Pool(processes=4) as pool:
-        #         bz_task = pool.apply_async(interpolate, args=(grids.bz, *args_interpolate))
-        #         ex_task = pool.apply_async(interpolate, args=(grids.ex, *args_interpolate))
-        #         ey_task = pool.apply_async(interpolate, args=(grids.ey, *args_interpolate))
-        #         ez_task = pool.apply_async(interpolate, args=(grids.ez, *args_interpolate))
-        #         bz = bz_task.get()
-        #         ex = ex_task.get()
-        #         ey = ey_task.get()
-        #         ez = ez_task.get()
-
-        # PROJECT MAGNETIC FIELD TO THE b0 DIRECTION (b0 direction = (sin(theta), cos(theta)))
-        bb0 = bz * cos_theta + bx0 * sin_theta
-        # CALCULATE ROTATION ANGLE
-        d_theta = (- q_by_m * dt / 2) * bb0
-        sin_d_theta = numpy.sin(d_theta)
-        cos_d_theta = numpy.cos(d_theta)
-        # CALCULATE HALF ACCELERATION IN xp AND y DIRECTION
-        half_acceleration_xp = (q_by_m * dt / 2) * (ex * cos_theta - ez * sin_theta)
-        half_acceleration_y = (q_by_m * dt / 2) * ey
-        # CALCULATE FULL ACCELERATION IN b0 DIRECTION
-        full_acceleration_b0 = (q_by_m * dt) * (ex * sin_theta + ez * cos_theta)
-        # ADD HALF ACCELERATIONS TO CORRESPONDING VELOCITIES
-        vxp_1 = specie.vxp_old + half_acceleration_xp
-        vy_1 = specie.vy_old + half_acceleration_y
-        # APPLY ROTATION AND HALF ACCELERATIONS
-        specie.vxp = (cos_d_theta * vxp_1 - sin_d_theta * vy_1) + half_acceleration_xp
-        specie.vy = (sin_d_theta * vxp_1 + cos_d_theta * vy_1) + half_acceleration_y
-        # APPLY FULL ACCELERATION FOR vb0
-        specie.vb0 = specie.vb0_old + full_acceleration_b0
-        # MOVE X
-        specie.x = numpy.fmod(
-            (specie.vxp * cos_theta + specie.vb0 * sin_theta) * dt + specie.x_old, length)
-        # MAKE SURE THAT 0 < X < LENGTH
-        specie.x[specie.x < 0] += length
-        # UPDATE NEAREST GRIDS
-        specie.update_nearest_grid()
-
-
-# UPDATE GRID VALUES BASED ON PARTICLE VALUES
-def weigh_to_grid():  # (x,v) to (rho, j)
-    """UPDATE GRID VALUES BASED ON PARTICLE VALUES"""
-
-    # STORE OLD FIELD QUANTITIES
-    grids.f_right_old = grids.f_right
-    grids.f_left_old = grids.f_left
-    grids.g_right_old = grids.g_right
-    grids.g_left_old = grids.g_left
-
-    # REINITIALIZE CURRENT DENSITIES
-    grids.jy_old = numpy.zeros(ng)
-    grids.jy = numpy.zeros(ng)
-    grids.jz_old = numpy.zeros(ng)
-    grids.jz = numpy.zeros(ng)
-
-    # REINITIALIZE RHO
-    grids.rho = numpy.zeros(ng)
-
-    for specie in species:  # loop for each specie
-        # GET PREVIOUS NEAREST GRIDS AND GRID POSITIONS
-        old_nearest_left_grid, old_nearest_right_grid = specie.nearest_grids_old()
-        old_x_left_grid = grids.x[old_nearest_left_grid]
-        # GET CURRENT NEAREST GRIDS AND CORRESPONDING GRID POSITIONS
-        nearest_left_grid, nearest_right_grid = specie.nearest_grids()
-        x_left_grid = grids.x[nearest_left_grid]
-        # GET PARTICLE CHARGE
-        qc = specie.q
-        # GET PARTICLE POSITIONS
-        xi = specie.x
-        # GET PARTICLE POSITIONS FROM THE PREVIOUS TIME STEP
-        xi_old = specie.x_old
-
-        # WEIGHING FUNCTIONS
-
-        def weigh_old(values, destination):
-            """weigh a value to grids before particle movement"""
-            d_right = values * (xi_old - old_x_left_grid)
-            d_left = values * dx - d_right
-            weighted = destination + numpy.bincount(old_nearest_left_grid, weights=d_left,
-                                                    minlength=ng) + numpy.bincount(old_nearest_right_grid,
-                                                                                   weights=d_right, minlength=ng)
-            return weighted
-
-        def weigh_current(values, destination):
-            """weigh a value to grids after particle movement"""
-            d_right = values * (xi - x_left_grid)
-            d_left = values * dx - d_right
-            weighted = destination + numpy.bincount(nearest_left_grid, weights=d_left, minlength=ng) + numpy.bincount(
-                nearest_right_grid, weights=d_right, minlength=ng)
-            return weighted
-
-        # WEIGH Jy
-
-        value = qc / dx * specie.vy / dx
-        grids.jy_old = weigh_old(value, grids.jy_old)
-        grids.jy = weigh_current(value, grids.jy)
-
-        # WEIGH Jz
-
-        value = qc / dx * (specie.vb0 * cos_theta - specie.vxp * sin_theta) / dx
-        grids.jz_old = weigh_old(value, grids.jz_old)
-        grids.jz = weigh_current(value, grids.jz)
-
-        # WEIGH RHO
-
-        value = qc / dx / dx
-        grids.rho = weigh_current(value, grids.rho)
-
-
-# 1/K^2 VALUES TO BE USED IN Ex FIELD SOLVER
-ksqi_list = 1 / (numpy.arange(1, ng // 2 + 1) * 2 * math.pi / length * numpy.sinc(
-    numpy.arange(1, ng // 2 + 1) * dx / length)) ** 2
-
-
-def solve_field_x():
-    """Find Ex using Poisson's Equation, similar to INITIAL FIELD SOLVER"""
-
-    # FOURIER TRANSFORM, FROM rho(x) TO rho(k)
-    rho_n_list = dx * scipy.fft.rfft(grids.rho)
-    rho_n_list = smooth(rho_n_list, w_smooth)
-    # POISSON'S EQUATION, FROM rho(k) to phi(k)
-    phi_n_list = numpy.concatenate(
-        ([0], rho_n_list[1:] * ksqi_list / epsilon))
-    # INVERSE FOURIER TRANSFORM, phi(k) TO phi(x)
-    phi_list = 1 / dx * scipy.fft.irfft(phi_n_list)
-    # SOLVE FOR Ex FROM phi(x)
-    grids.ex = (numpy.roll(phi_list, 1) - numpy.roll(phi_list, -1)) / 2 / dx
-
-
-def solve_field():  # Ey and Bz (also Ez and By if B0 not on z axis)
-    """Find Ey, Bz, Ez, and By using Maxwell's Equation"""
-
-    # SOLVE RIGHT-GOING FIELD QUANTITY F = 1/2*(Ey + Bz)
-    grids.f_right = numpy.roll(grids.f_right_old, 1) - (dt / 4) * (
-            numpy.roll(grids.jy_old, 1) + grids.jy)
-    # SOLVE LEFT-GOING FIELD QUANTITY F = 1/2*(Ey - Bz)
-    grids.f_left = numpy.roll(grids.f_left_old, -1) - (dt / 4) * (
-            numpy.roll(grids.jy_old, -1) + grids.jy)
-    # SOLVE Ey
-    grids.ey = (grids.f_right + grids.f_left) / epsilon
-    # SOLVE Bz
-    grids.bz = (grids.f_right - grids.f_left) * math.sqrt(mu / epsilon)
-    # SOLVE RIGHT-GOING FIELD QUANTITY G = 1/2*(Ez - By)
-    grids.g_right = numpy.roll(grids.g_right_old, 1) - (dt / 4) * (
-            numpy.roll(grids.jz_old, 1) + grids.jz)
-    # SOLVE LEFT-GOING FIELD QUANTITY G = 1/2*(Ez + By)
-    grids.g_left = numpy.roll(grids.g_left_old, -1) - (dt / 4) * (
-            numpy.roll(grids.jz_old, -1) + grids.jz)
-    # SOLVE Ez
-    grids.ez = (grids.g_right + grids.g_left) / epsilon
-    # SOLVE By
-    grids.by = (grids.g_left - grids.g_right) * math.sqrt(mu / epsilon)
+# 1/K^2/epsilon VALUES TO BE USED IN Ex FIELD SOLVER
+ksqi_over_epsilon = 1 / (numpy.arange(1, ng // 2 + 1) * 2 * math.pi / length * numpy.sinc(
+    numpy.arange(1, ng // 2 + 1) * dx / length)) ** 2 / epsilon
 
 
 # MAIN PROGRAM
 def main():
     """MAIN PROGRAM"""
 
-    # INITIALIZE ARRAYS TO STORE DATA
-    ex_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Ex VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
-    ey_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Ey VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
-    ez_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Ez VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
-    by_list = numpy.zeros(shape=(nt_sample, ng))  # STORE By VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
-    bz_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Bz VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
-    rho_list = numpy.zeros(shape=(nt_sample, ng))  # STORE RHO VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
+    def update_to_move_particles_es(*args):
+        args_es = args + (bz0, e_ext)
+        particle_mover.move_particles_es(*args_es)
+
+    if is_electromagnetic:
+        move_particles = particle_mover.move_particles_em
+    else:
+        move_particles = update_to_move_particles_es
 
     def main_loop(time_step):
         """MAIN PROGRAM TO BE LOOPED"""
 
         # MAIN PROGRAM
-        move_particles()  # move particles
-        weigh_to_grid()  # weight to grid
-        solve_field_x()  # solve Ex from rho (Poisson's eqn)
-        # solve_field()  # solve other field quantities (Maxwell's eqn)
+        move_particles(species, grids, dx, dt, ng, length, bx0, sin_theta, cos_theta)  # move particles
+        particles_to_grids.weigh_to_grid(grids, species, ng, dx, sin_theta, cos_theta)  # weight to grid
+        field_solver.solve_field_x(grids, dx, ksqi_over_epsilon, sample_k,
+                                   w_smooth)  # solve Ex from rho (Poisson's eqn)
+        if is_electromagnetic:
+            field_solver.solve_field(grids, dt, epsilon,
+                                     sqrt_mu_over_epsilon)  # solve other field quantities (Maxwell's eqn)
 
         # PRINT REPORT EVERY 100 FRAMES
-        if time_step % 100 == 0:
-            grids.print(time_step)
+        if time_step % 100 == 1:
+            grids.print(time_step, bx0)
 
         # STORE DATA PERIODICALLY
         index = time_step * nt_sample / nt
@@ -811,8 +466,8 @@ def main():
             # STORE DATA FOR PHASE SPACE PLOT (ELECTRONS ONLY)
             index = int(index)
             for i in range(len(species)):
-                x_data[i][index + 1] = species[i].x[plot_particles_id]
-                v_data[i][index + 1] = species[i].vx[plot_particles_id]
+                x_data[i][index] = species[i].x[plot_particles_id]
+                v_data[i][index] = species[i].vx(sin_theta, cos_theta)[plot_particles_id]
             # STORE THE E FIELD FOR PLOTTING
             ex_list[index] = grids.ex
             ey_list[index] = grids.ey
@@ -822,10 +477,15 @@ def main():
             bz_list[index] = grids.bz
             # STORE RHO FOR PLOTTING
             rho_list[index] = grids.rho
+            if index == nt_sample - 1:
+                return True
+
+        return False
 
     # RUN THE MAIN LOOP FOR A NUMBER OF TIME STEPS
-    for count in range(nt):
-        main_loop(count)
+    for count in range(1, nt):
+        if main_loop(count):
+            break
 
     # OUTPUT RUNTIME
     end_time = time.monotonic()
@@ -855,7 +515,7 @@ def main():
               ng=ng, nt=nt_sample,
               smu=smu, scu=scu,
               slu=slu, stu=stu, c=c, dx=dx, dt=dt_sample, wp=wp, wpi=wpi, wc=wc, wci=wci, theta=theta, v_th=v_th,
-              vi_th=vi_th, init_d_k = init_d_k_list, init_k=init_k_list)
+              vi_th=vi_th, init_d_k=init_d_k_list, init_k=init_k_list, grid_x=grids.x)
 
 
 #  INDICES OF PARTICLES TO BE PLOTTED IN THE ANIMATION
@@ -865,11 +525,19 @@ else:
     plot_particles_id = rng.choice(min(ne, ni), n_sample)
 
 #  CREATE ARRAYS FOR STORING PHASE SPACE DATA FOR ANIMATION
-x_data = numpy.zeros(shape=(len(species), nt_sample + 1, n_sample))
-v_data = numpy.zeros(shape=(len(species), nt_sample + 1, n_sample))
+x_data = numpy.zeros(shape=(len(species), nt_sample, n_sample))
+v_data = numpy.zeros(shape=(len(species), nt_sample, n_sample))
+
+# INITIALIZE ARRAYS TO STORE DATA
+ex_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Ex VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
+ey_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Ey VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
+ez_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Ez VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
+by_list = numpy.zeros(shape=(nt_sample, ng))  # STORE By VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
+bz_list = numpy.zeros(shape=(nt_sample, ng))  # STORE Bz VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
+rho_list = numpy.zeros(shape=(nt_sample, ng))  # STORE RHO VALUES FOR SPECTRUM PLOTTING (2D ARRAY)
 
 # INITIALIZE GRIDS
-initialization()
+initialize()
 
 # RUN MAIN PROGRAM
 # main()
