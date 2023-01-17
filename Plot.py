@@ -1,55 +1,58 @@
 import io
 import math
+import os
+
 import scipy.fft
 import matplotlib.pyplot as plt
 import numpy
+import constants
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 from matplotlib import rcParams
 from matplotlib.colors import LogNorm
 import zarr
 
+
 rcParams['animation.ffmpeg_path'] = r'ffmpeg\\bin\\ffmpeg.exe'  # for saving animation in mpeg
 
 # PHYSICAL CONSTANTS
-mu = 1.26E-6
+mu = constants.mu
 
 
 # PLOT GRID QUANTITIES (NON-FOURIER)
 
-def plot_non_fourier(file_name, anim=True, time_step=0):
+def plot_non_fourier(file_name, specie=1, anim=True, time_step=0):
     """
     PLOT GRID QUANTITIES WITHOUT FOURIER TRANSFORMING
     :param file_name: name of the file which stores the arrays.
+    :param specie: specie to focus on in the phase space animation
     :param anim: make an animation or not.
     :param time_step: time step to be plotted, only needed if not animated.
     :return:
     """
 
     # LOAD ARRAYS FROM FILE
-    loader = zarr.load('{}.zip'.format(file_name))
-    slu = loader['slu']
-    stu = loader['stu']
-    smu = loader['smu']
-    scu = loader['scu']
-    grid_x = loader['grid_x'] * slu
-    rho_list = loader['rho_list'] * scu / slu ** 3
-    ex_list = loader['ex'] * slu * smu / stu ** 2 / scu
-    ey_list = loader['ey'] * slu * smu / stu ** 2 / scu
-    ez_list = loader['ez'] * slu * smu / stu ** 2 / scu
-    by_list = loader['by'] * smu / scu / stu
-    bz_list = loader['bz'] * smu / scu / stu
+    loader = zarr.load('output/{}.zip'.format(file_name))
+    grid_x = loader['grid_x']
+    rho_list = loader['rho_list']
+    ex_list = loader['ex']
+    ey_list = loader['ey']
+    ez_list = loader['ez']
+    by_list = loader['by']
+    bz_list = loader['bz']
+    jy_list = loader['jy']
+    jz_list = loader['jz']
     ng = int(loader['ng'])
     nt = int(loader['nt'])
-    dx = loader['dx'] * slu
-    dt = loader['dt'] * stu
-    x = loader['x'] * slu
-    vx = loader['vx'] * slu / stu
+    dx = loader['dx']
+    dt = loader['dt']
+    x = loader['x']
+    vx = loader['vx']
     n_species = x.shape[0]
     n_sample = x.shape[2]
     length = ng * dx
 
     # CANVAS
-    fig, axs = plt.subplots(3, 3)
+    fig, axs = plt.subplots(3, 4, figsize=[9, 4.8])
 
     # MERGE BOTTOM SUBPLOTS
     gs = axs[-1, 0].get_gridspec()
@@ -91,13 +94,13 @@ def plot_non_fourier(file_name, anim=True, time_step=0):
     init_x = x[:, 0].flatten()
     init_vx = vx[:, 0].flatten()
     line3 = axbig.scatter(init_x, init_vx, s=1)  # draw an initial scatter plot
-    color_list = numpy.concatenate([([i] * n_sample) for i in ["black", "red"]], axis=0)
+    color_list = numpy.concatenate([([i] * n_sample) for i in ["black", "red", "yellow"]], axis=0)
     line3.set_facecolors(color_list)
     axbig.set_title("Phase space")
     axbig.set_xlabel("x (m)")
     axbig.set_ylabel("vx (m/s)")
     axbig.set_xlim([0, length])
-    axbig.set_ylim(y_axis_limit(vx[1]))
+    axbig.set_ylim(y_axis_limit(vx[specie]))
 
     # TOP CENTER PLOT (By)
     line4, = axs[0, 1].plot(grid_x, by_list[time_step])
@@ -115,7 +118,7 @@ def plot_non_fourier(file_name, anim=True, time_step=0):
     axs[1, 1].set_xlim([0, length])
     axs[1, 1].set_ylim(y_axis_limit(ey_list))
 
-    # TOP LEFT PLOT (Bz)
+    # TOP RIGHT PLOT (Bz)
     line6, = axs[0, 2].plot(grid_x, bz_list[time_step])
     axs[0, 2].set_title("Bz")
     axs[0, 2].set_xlabel("x (m)")
@@ -131,12 +134,28 @@ def plot_non_fourier(file_name, anim=True, time_step=0):
     axs[1, 2].set_xlim([0, length])
     axs[1, 2].set_ylim(y_axis_limit(ez_list))
 
+    # TOP FAR RIGHT PLOT (Jy)
+    line8, = axs[0, 3].plot(grid_x, jy_list[time_step])
+    axs[0, 3].set_title("Jy")
+    axs[0, 3].set_xlabel("x (m)")
+    axs[0, 3].set_ylabel("Jy (A m^-2)")
+    axs[0, 3].set_xlim([0, length])
+    axs[0, 3].set_ylim(y_axis_limit(jy_list))
+
+    # CENTER FAR RIGHT PLOT (Jz)
+    line9, = axs[1, 3].plot(grid_x, jz_list[time_step])
+    axs[1, 3].set_title("Jz")
+    axs[1, 3].set_xlabel("x (m)")
+    axs[1, 3].set_ylabel("Jz (A m^-2)")
+    axs[1, 3].set_xlim([0, length])
+    axs[1, 3].set_ylim(y_axis_limit(jz_list))
+
     # PREVENT PLOT OVERLAPS
     plt.tight_layout()
 
     if anim:
         # CREATE A LIST OF LINES
-        line = [line1, line2, line3, line4, line5, line6, line7]
+        line = [line1, line2, line3, line4, line5, line6, line7, line8, line9]
 
         def animate(frame_number):
             frame_number = frame_number * 16
@@ -149,15 +168,18 @@ def plot_non_fourier(file_name, anim=True, time_step=0):
             line[4].set_ydata(ey_list[frame_number])
             line[5].set_ydata(bz_list[frame_number])
             line[6].set_ydata(ez_list[frame_number])
+            line[7].set_ydata(jy_list[frame_number])
+            line[8].set_ydata(jz_list[frame_number])
             return line
 
         # CREATE ANIMATION
-        animation = FuncAnimation(fig, animate, save_count=nt//16)
+        animation = FuncAnimation(fig, animate, save_count=nt // 16)
 
         # SAVE ANIMATION
-        f = "{}_anim.mp4"
-        writervideo = FFMpegWriter(fps=240)
-        animation.save(f.format(file_name), writer=writervideo)
+        f = "anim/{}_anim.mp4".format(file_name)
+        os.makedirs(os.path.dirname(f), exist_ok=True)
+        writervideo = FFMpegWriter(fps=120)
+        animation.save(f, writer=writervideo)
         plt.close()
 
     else:
@@ -183,8 +205,8 @@ def plot_phase_space_animation(file_name, specie):
     vx = loader['vx'] * slu / stu
     dx = loader['dx'] * slu
     dt = loader['dt'] * stu / 10 ** -3
-    v_th = loader['v_th'] * slu / stu
-    vi_th = loader['vi_th'] * slu / stu
+    v_th = loader['v_th'][0] * slu / stu
+    vi_th = loader['v_th'][1] * slu / stu
     length = ng * dx
     n_species = x.shape[0]
     n_sample = x.shape[2]
@@ -259,35 +281,30 @@ def plot(file_name, specie, field):
     """
 
     # LOAD ARRAYS FROM FILE
-    loader = zarr.load('{}.zip'.format(file_name))
-    mi = loader['mi']
-    slu = loader['slu']
-    stu = loader['stu']
-    smu = loader['smu']
-    scu = loader['scu']
-    ex_list = loader['ex'] * slu * smu / stu ** 2 / scu
-    ey_list = loader['ey'] * slu * smu / stu ** 2 / scu
-    ez_list = loader['ez'] * slu * smu / stu ** 2 / scu
-    by_list = loader['by'] * smu / scu / stu
-    bz_list = loader['bz'] * smu / scu / stu
-    rho_list = loader['rho_list'] * scu / slu ** 3
+    loader = zarr.load('output/{}.zip'.format(file_name))
+    mi = loader['m'][1]
+    ex_list = loader['ex']
+    ey_list = loader['ey']
+    ez_list = loader['ez']
+    by_list = loader['by']
+    bz_list = loader['bz']
+    rho_list = loader['rho_list']
     ng = int(loader['ng'])
     nt = int(loader['nt'])
-    b0 = loader['b0'] * smu / scu / stu
+    b0 = loader['b0']
     rho = loader['rho']
-    kte = loader['kte'] * smu * slu ** 2 / stu ** 2
-    kti = loader['kti'] * smu * slu ** 2 / stu ** 2
-    dx = loader['dx'] * slu
-    dt = loader['dt'] * stu
-    wp = loader['wp'] / stu
-    wpi = loader['wpi'] / stu
-    wc = loader['wc'] / stu
-    wci = loader['wci'] / stu
-    c = loader['c'] * slu / stu
+    kte = loader['kt'][0]
+    kti = loader['kt'][1]
+    dx = loader['dx']
+    dt = loader['dt']
+    wp = loader['wp'][0]
+    wc = loader['wc'][0]
+    wci = loader['wc'][1]
+    c = loader['c']
     theta = loader['theta']
-    v_th = loader['v_th'] * slu / stu
+    v_th = loader['v_th'][0]
     init_d_k = loader['init_d_k']
-    init_k = loader['init_k']
+    init_k = loader['init_v_k']
     length = ng * dx
     print(init_d_k)
     print(init_k)
@@ -491,7 +508,7 @@ def plot(file_name, specie, field):
     y_max = nt // 2 + 1
 
     # PLOT SPECTRA
-    maximum = math.ceil(math.log10(numpy.amax(ex_omega_k_list[1:])))
+    maximum = math.ceil(math.log10(numpy.amax(ex_omega_k_list[1:]))) - 2
     shw1 = ax1.imshow(ex_omega_k_list[0:y_max], cmap='plasma',
                       norm=LogNorm(vmin=10 ** (maximum - 4),
                                    vmax=10 ** maximum),
@@ -499,7 +516,7 @@ def plot(file_name, specie, field):
                       extent=extent,
                       aspect='auto', interpolation='none')
     try:
-        maximum = math.ceil(math.log10(numpy.amax(ey_omega_k_list[1:])))
+        maximum = math.ceil(math.log10(numpy.amax(ey_omega_k_list[1:]))) - 2
     except ValueError:
         maximum = 0
     shw2 = ax2.imshow(ey_omega_k_list[0:y_max], cmap='plasma',
@@ -509,7 +526,7 @@ def plot(file_name, specie, field):
                       extent=extent,
                       aspect='auto', interpolation='none')
     try:
-        maximum = math.ceil(math.log10(numpy.amax(ez_omega_k_list[1:])))
+        maximum = math.ceil(math.log10(numpy.amax(ez_omega_k_list[1:]))) - 2
     except ValueError:
         maximum = 0
     shw3 = ax3.imshow(ez_omega_k_list[0:y_max], cmap='plasma',
@@ -532,14 +549,14 @@ def plot(file_name, specie, field):
 
     # PLOT LABELS
     ax1.set_title(title1)
-    ax1.set_xlabel('k (1/m)')
-    ax1.set_ylabel('omega (Hz)')
+    ax1.set_xlabel('k (rad/m)')
+    ax1.set_ylabel('omega (rad/s)')
     ax2.set_title(title2)
-    ax2.set_xlabel('k (1/m)')
-    ax2.set_ylabel('omega (Hz)')
+    ax2.set_xlabel('k (rad/m)')
+    ax2.set_ylabel('omega (rad/s)')
     ax3.set_title(title3)
-    ax3.set_xlabel('k (1/m)')
-    ax3.set_ylabel('omega (Hz)')
+    ax3.set_xlabel('k (rad/m)')
+    ax3.set_ylabel('omega (rad/s)')
     # fig.supxlabel('k (1 unit = {:.2e} m-1)'.format(1 / slu))
     # fig.supylabel('omega (1 unit = {:.2e} Hz)'.format(1 / stu))
     # fig.supxlabel('k')
@@ -569,24 +586,26 @@ def plot(file_name, specie, field):
     bottom, top = plt.ylim()  # get current left and right limit
     # right = 4 * math.sqrt(wp**2 + wc**2)  # set plot limit to 4x the plasma frequency
     if specie == "ion" or specie == "electron":
-        height = 1E8  # 5.64E5  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
+        height = 1E7  # 5.64E5  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
         width = 2
     else:
         height = min(math.sqrt(wp ** 2 + wc ** 2) * 20, top)  # plot height #math.sqrt(wp ** 2 + wc ** 2) * 5
         width = height / c  # plot width
 
     # CROP PLOTS
-    ax1.set_xlim(right=width)  # set x limit for left plot
-    ax1.set_ylim(top=height)  # set y limit for left plot
-    ax2.set_xlim(right=width)  # set x limit for middle plot
-    ax2.set_ylim(top=height)  # set y limit for middle plot
-    ax3.set_xlim(right=width)  # set x limit for right plot
-    ax3.set_ylim(top=height)  # set y limit for right plot
+    # ax1.set_xlim(right=width)  # set x limit for left plot
+    # ax1.set_ylim(top=height)  # set y limit for left plot
+    # ax2.set_xlim(right=width)  # set x limit for middle plot
+    # ax2.set_ylim(top=height)  # set y limit for middle plot
+    # ax3.set_xlim(right=width)  # set x limit for right plot
+    # ax3.set_ylim(top=height)  # set y limit for right plot
 
     # PREVENT PLOT OVERLAPS
     plt.tight_layout()
 
-    plt.savefig('{}_{}.png'.format(field, file_name))  # save figure
+    path = 'fig/{}_{}.png'.format(field, file_name)
+    os.makedirs(path, exist_ok=True)
+    plt.savefig(path)  # save figure
     # plt.show()  # show figure
 
 
@@ -600,10 +619,10 @@ if __name__ == '__main__':
 
     profiler = cProfile.Profile()
     profiler.enable()
-    file_list = ["20221209-141628_ni1e+08_ti1e+04_te1e+04_b01e-04_theta0"]
+    file_list = ["20230116-221209_nsp2_theta90_EM"]
     for file in file_list:
-        #plot_non_fourier(file)
-        plot(file, "electron", "rho")
+        plot_non_fourier(file, numpy.s_[0:2])
+        # plot(file, "ion", "rho")
         # plot_phase_space_animation(file, "ion")
     profiler.disable()
     s = io.StringIO()

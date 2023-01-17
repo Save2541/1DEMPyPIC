@@ -1,15 +1,42 @@
 import numpy
 
+import user_input
 
-def weigh_to_grid(grids, species, ng, dx, sin_theta, cos_theta):
+
+def init_weigh_to_grid(species, grids, dx, ng=user_input.ng):
+    """
+    Initial weighting of particles to grid values (x to rho, hat function)
+    :param species: particle list
+    :param grids: grid list
+    :param dx: grid size
+    :param ng: number of grids
+    :return: none
+    """
+    for specie in species:  # loop for each specie
+        # UPDATE NEAREST GRIDS
+        specie.update_nearest_grid(dx)
+        # GET NEAREST GRIDS
+        nearest_left_grid, nearest_right_grid = specie.nearest_grids(ng)
+        # GET POSITIONS
+        x_left_grid = grids.x[nearest_left_grid]  # get the positions of the nearest left grids
+        xi = specie.x  # get particle positions
+        coeff = specie.q / dx ** 2  # calculate a coefficient to be used
+        d_rho_right = coeff * (xi - x_left_grid)  # calculate densities to be assigned to the nearest right grids
+        d_rho_left = coeff * dx - d_rho_right  # calculate densities to be assigned to the nearest left grids
+        # ADD DENSITIES TO CORRESPONDING GRIDS
+        grids.rho = grids.rho + numpy.bincount(nearest_left_grid, weights=d_rho_left, minlength=ng) + numpy.bincount(
+            nearest_right_grid, weights=d_rho_right, minlength=ng)
+
+
+def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, ng=user_input.ng):
     """
     Update grid values based on particle values i.e. (x,v) to (rho,j)
     :param grids: list of grid cells
     :param species: list of particles divided into species
-    :param ng: number of grid cells
     :param dx: grid size
     :param sin_theta: sine of theta, where theta is the angle between B_0 and the z axis
     :param cos_theta: cosine of theta, where theta is the angle between B_0 and the z axis
+    :param ng: number of grid cells
     :return: none
     """
     """UPDATE GRID VALUES BASED ON PARTICLE VALUES"""

@@ -2,7 +2,7 @@ import numpy
 
 
 class ParticleList:
-    def __init__(self, x, np, vy=None, vxp=None, vb0=None,
+    def __init__(self, x, np, q, m, qm, vy=None, vxp=None, vb0=None,
                  x_old=None, vy_old=None,
                  vxp_old=None, vb0_old=None, left_grid=None,
                  left_grid_old=None):
@@ -10,6 +10,9 @@ class ParticleList:
         Store particle data.
         :param x: position
         :param np: number of particles
+        :param q: PIC particle charge
+        :param m: PIC particle mass
+        :param qm: charge-to-mass ratio
         :param vy: velocity in the y direction
         :param vxp: velocity in the x' direction
         :param vb0: velocity in the B_0 direction
@@ -21,6 +24,9 @@ class ParticleList:
         :param left_grid_old: the immediate grids to the left of particles at previous time step
         """
         self.x = x
+        self.q = q
+        self.m = m
+        self.qm = qm
         self.vy = vy
         self.vxp = vxp
         self.vb0 = vb0
@@ -35,14 +41,7 @@ class ParticleList:
         # SET INITIAL VALUES
         for key in val_dict.keys():
             if val_dict[key] is None:
-                val = numpy.zeros(np)
-            else:
-                val = val_dict[key]
-            setattr(self, key, val)
-        # self.v = numpy.sqrt(vxp ** 2 + vy ** 2 + vb0 ** 2) # TO BE DELETED
-        # self.v_old = numpy.sqrt(vxp_old ** 2 + vy_old ** 2 + vb0_old ** 2) # TBD
-
-        # https://docs.python.org/3/library/functions.html#property
+                setattr(self, key, numpy.zeros(int(np)))
 
     def update_nearest_grid(self, dx):
         """
@@ -86,36 +85,22 @@ class ParticleList:
         return self.vxp * cos_theta + self.vb0 * sin_theta
 
 
-class ElectronList(ParticleList):
-    def __init__(self, x, ne, qe, me, qm, **kwargs):
-        """
-        Store PIC electron data
-        :param x: particle position
-        :param ne: number of PIC electrons
-        :param qe: PIC electron charge
-        :param me: PIC electron mass
-        :param qm: electron charge-to-mass ratio
-        :param kwargs: see parent class ParticleList
-        """
-        super().__init__(x, ne, **kwargs)
-        self.q = -qe
-        self.m = me
-        self.qm = -qm
-
-
-# DEFINE CLASS TO STORE PIC ION DATA
-class IonList(ParticleList):
-    def __init__(self, x, ni, qi, mi, qmi, **kwargs):
-        """
-        Store PIC ion data
-        :param x: particle position
-        :param ni: number of PIC ions
-        :param qi: PIC ion charge
-        :param mi: PIC ion mass
-        :param qmi: ion charge-to-mass ratio
-        :param kwargs: see parent class ParticleList
-        """
-        super().__init__(x, ni, **kwargs)
-        self.q = qi
-        self.m = mi
-        self.qm = qmi
+def generate_particles(sp_list, x_list, v_list, args_list):
+    """
+    Generate particles
+    :param sp_list: list of specie parameters
+    :param x_list: list of particle positions
+    :param v_list: list of particle velocities
+    :param args_list: other arguments
+    :return: list of particles
+    """
+    species = []
+    for i in range(0, sp_list.n_sp):
+        specie_name = sp_list.name[i]
+        species.append(ParticleList(x_list[specie_name],  # uniform position distribution
+                                    *args_list[i],
+                                    # gaussian velocity distribution
+                                    vxp=v_list[specie_name]["vxp"],
+                                    vy=v_list[specie_name]["vy"],
+                                    vb0=v_list[specie_name]["vb0"]))
+    return species

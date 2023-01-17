@@ -1,7 +1,9 @@
 import numpy
 
+import constants
 
-def smooth(fourier_plot, sample_k, dx, weight=0.5):
+
+def smooth(fourier_plot, sample_k, dx, weight=constants.w_smooth):
     """
     Apply smoothing function to fourier-transformed plot
     :param fourier_plot: fourier-transformed plot to be smoothed

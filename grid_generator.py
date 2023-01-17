@@ -1,20 +1,16 @@
 import numpy
-import math
+import user_input
 
 
 class GridPointList:
-    def __init__(self, x, ng, epsilon, mu, bz0, e_ext, rho=None, jy_old=None, jy=None, jz_old=None, jz=None,
+    def __init__(self, x, almanac, rho=None, jy_old=None, jy=None, jz_old=None, jz=None,
                  ex=None, ey=None, ez=None, by=None, bz=None,
                  f_right_old=None, f_left_old=None, f_right=None, f_left=None,
                  g_right_old=None, g_left_old=None, g_right=None, g_left=None):
         """
         Store grid data
         :param x: position of the grid point
-        :param ng: number of grids
-        :param epsilon: permittivity of free space (epsilon_0)
-        :param mu: vacuum permeability (mu_naught)
-        :param bz0: initial magnetic field (b0)
-        :param e_ext: initial electric field (y)
+        :param almanac: dictionary of useful quantities
         :param rho: charge density
         :param jy_old: current density y, previous
         :param jy: current density y, current
@@ -35,7 +31,7 @@ class GridPointList:
         :param g_left: left going field quantity G, current
         Definition of field quantities: F_right/left = 1/2*[Ey (+/-) Bz], G_right/left = 1/2*[Ez (-/+) By]
         """
-        self.x = x
+        self.x = x  # [x1, x2, x3, ...]
         self.rho = rho
         self.jy_old = jy_old
         self.jy = jy
@@ -55,27 +51,26 @@ class GridPointList:
         self.g_right = g_right
         self.g_left = g_left
 
-        bz0_contribution = math.sqrt(epsilon / mu) * bz0 / 2
-        e_ext_contribution = epsilon * e_ext / 2
-        val_dict = dict(rho=rho, jy_old=jy_old, jy=jy, jz_old=jz_old, jz=jz, ex=ex, ey=ey, ez=ez, by=by, bz=bz,
-                        f_right_old=f_right_old, f_left_old=f_left_old, f_right=f_right, f_left=f_left,
+        bz0_contribution = almanac["bz0"] / (2 * almanac["sqrt_mu_over_epsilon"])
+        e_ext_contribution = almanac["epsilon"] * almanac["e_ext"] / 2
+        val_dict = dict(rho=rho, jy_old=jy_old, jy=jy, jz_old=jz_old, jz=jz, ex=ex, ez=ez, by=by,
                         g_right_old=g_right_old, g_left_old=g_left_old, g_right=g_right, g_left=g_left)
         # SET INITIAL VALUES
         for key in val_dict.keys():
             if val_dict[key] is None:
-                if key == "ey":
-                    val = numpy.zeros(ng) + e_ext
-                elif key == "bz":
-                    val = numpy.zeros(ng) + bz0
-                elif key == "f_right_old" or key == "f_right":
-                    val = numpy.zeros(ng) + e_ext_contribution + bz0_contribution
-                elif key == "f_left_old" or key == "f_left":
-                    val = numpy.zeros(ng) + e_ext_contribution - bz0_contribution
-                else:
-                    val = numpy.zeros(ng)
-            else:
-                val = val_dict[key]
-            setattr(self, key, val)
+                setattr(self, key, numpy.zeros(user_input.ng))
+        if ey is None:
+            self.ey = numpy.zeros(user_input.ng) + almanac["e_ext"]
+        if bz is None:
+            self.bz = numpy.zeros(user_input.ng) + almanac["bz0"]
+        if f_right_old is None:
+            self.f_right_old = numpy.zeros(user_input.ng) + e_ext_contribution + bz0_contribution
+        if f_left_old is None:
+            self.f_left_old = numpy.zeros(user_input.ng) + e_ext_contribution - bz0_contribution
+        if f_right is None:
+            self.f_right = numpy.zeros(user_input.ng) + e_ext_contribution + bz0_contribution
+        if f_left is None:
+            self.f_left = numpy.zeros(user_input.ng) + e_ext_contribution - bz0_contribution
 
     def print(self, t, bx0, index=1):
         """
@@ -91,3 +86,12 @@ class GridPointList:
                 t, index, self.rho[index], self.jy[index], self.jz[index], self.ex[index], self.ey[index],
                 self.ez[index], bx0, self.by[index], self.bz[index],
                 self.f_left[index], self.f_right[index], self.g_left[index], self.g_right[index]))
+
+
+def generate_grids(almanac):
+    """
+    Generate grids
+    :param almanac: dictionary of useful numbers
+    :return: grid list
+    """
+    return GridPointList(numpy.arange(0, almanac["length"], almanac["dx"]), almanac)
