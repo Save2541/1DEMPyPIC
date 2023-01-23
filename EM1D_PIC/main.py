@@ -1,8 +1,8 @@
-import qol
-import particle_mover
-import particles_to_grids
-import field_solver
-import user_input
+from . import field_solver
+from . import particle_mover
+from . import particles_to_grids
+from . import qol
+from . import user_input
 
 
 def main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_particles_id, nt=user_input.nt,

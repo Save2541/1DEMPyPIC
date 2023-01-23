@@ -1,6 +1,6 @@
 import numpy
 
-import user_input
+from . import user_input
 
 
 def interpolate(value, nearest_left_grid_point, nearest_right_grid_point, x_right_weight):
@@ -28,7 +28,7 @@ def store_old_velocities(specie):
     specie.vb0_old = specie.vb0
 
 
-def get_args_interpolate(specie, grids, dx, ng=user_input.ng):
+def get_args_interpolate(specie, grids, dx, ng=None):
     """
     Get the required arguments for the interpolate function
     :param specie: list of particles
@@ -37,6 +37,8 @@ def get_args_interpolate(specie, grids, dx, ng=user_input.ng):
     :param ng: number of grid cells
     :return: arguments for the interpolate function (the nearest left grids, nearest right grids, weight)
     """
+    if ng is None:
+        ng = user_input.ng
     # GET NEAREST GRIDS
     nearest_left_grid_point, nearest_right_grid_point = specie.nearest_grids(ng)
     # GET POSITIONS

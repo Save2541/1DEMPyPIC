@@ -2,8 +2,8 @@ import os
 import time
 from datetime import timedelta
 
-import user_input
-import constants
+from . import constants
+from . import user_input
 
 
 def create_log(sp_list, almanac):

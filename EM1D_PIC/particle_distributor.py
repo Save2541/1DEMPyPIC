@@ -1,6 +1,8 @@
-import numpy
 import math
-import qol
+
+import numpy
+
+from . import qol
 
 
 def distribute_positions(sp_list, almanac, rng):

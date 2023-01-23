@@ -1,6 +1,7 @@
-import scipy.fft
 import numpy
-import digital_filtering
+import scipy.fft
+
+from . import digital_filtering
 
 
 def solve_field_x(grids, dx, ksqi_over_epsilon, sample_k):

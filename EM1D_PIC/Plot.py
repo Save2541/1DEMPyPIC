@@ -2,15 +2,15 @@ import io
 import math
 import os
 
-import scipy.fft
 import matplotlib.pyplot as plt
 import numpy
-import constants
-from matplotlib.animation import FuncAnimation, FFMpegWriter
-from matplotlib import rcParams
-from matplotlib.colors import LogNorm
+import scipy.fft
 import zarr
+from matplotlib import rcParams
+from matplotlib.animation import FuncAnimation, FFMpegWriter
+from matplotlib.colors import LogNorm
 
+from . import constants
 
 rcParams['animation.ffmpeg_path'] = r'ffmpeg\\bin\\ffmpeg.exe'  # for saving animation in mpeg
 
@@ -185,89 +185,6 @@ def plot_non_fourier(file_name, specie=1, anim=True, time_step=0):
     else:
         # SHOW PLOT
         plt.show()
-
-
-# PHASE SPACE ANIMATION PLOTTING PROGRAM
-def plot_phase_space_animation(file_name, specie):
-    """PLOT PHASE SPACE ANIMATION
-        file_name = name of the file which stores the arrays.
-        specie = particles to be plotted ("electron", "ion", "both")
-    """
-
-    # LOAD ARRAYS FROM FILE
-    loader = zarr.load('{}.zip'.format(file_name))
-
-    ng = loader['ng']
-    nt = loader['nt']
-    slu = loader['slu']
-    stu = loader['stu']
-    x = loader['x'] * slu
-    vx = loader['vx'] * slu / stu
-    dx = loader['dx'] * slu
-    dt = loader['dt'] * stu / 10 ** -3
-    v_th = loader['v_th'][0] * slu / stu
-    vi_th = loader['v_th'][1] * slu / stu
-    length = ng * dx
-    n_species = x.shape[0]
-    n_sample = x.shape[2]
-
-    # CREATE SCATTER PLOT FOR ANIMATION
-    fig_anim = plt.figure(figsize=(14, 7))  # create figure
-    ax_anim = plt.axes(xlim=(0, length),
-                       ylim=(-vi_th * 20, vi_th * 20))  # draw axis on figure
-    plt.title("Phase space")  # plot title
-    plt.xlabel("x-Position (m)")  # x-axis label
-    plt.ylabel("x-Velocity (m/s)")  # y-axis label
-
-    if specie == "electron":
-        scatter = ax_anim.scatter(numpy.zeros(n_sample), numpy.zeros(n_sample))  # empty scatter plot
-        color_list = ["black"] * n_sample
-    elif specie == "ion":
-        scatter = ax_anim.scatter(numpy.zeros(n_sample), numpy.zeros(n_sample))  # empty scatter plot
-        color_list = ["red"] * n_sample
-    else:
-        scatter = ax_anim.scatter(numpy.zeros(n_sample * n_species),
-                                  numpy.zeros(n_sample * n_species))  # empty scatter plot
-        color_list = numpy.concatenate([([i] * n_sample) for i in ["black", "red"]], axis=0)
-
-    scatter.set_facecolors(color_list)
-
-    def setup_plot():
-        """Initial drawing of the scatter plot"""
-        if specie == "electron":
-            init_x = x[0, 0].flatten()
-            init_vx = vx[0, 0].flatten()
-        elif specie == "ion":
-            init_x = x[1, 0].flatten()
-            init_vx = vx[1, 0].flatten()
-        else:
-            init_x = x[:, 0].flatten()
-            init_vx = vx[:, 0].flatten()
-        scatter.set_offsets(numpy.column_stack((init_x, init_vx)))  # draw an initial scatter plot
-        return scatter,
-
-    def update(frame_number):
-        """Update the scatter plot"""
-        if specie == "electron":
-            new_x = x[0, frame_number + 1].flatten()
-            new_vx = vx[0, frame_number + 1].flatten()
-        elif specie == "ion":
-            new_x = x[1, frame_number + 1].flatten()
-            new_vx = vx[1, frame_number + 1].flatten()
-        else:
-            new_x = x[:, frame_number + 1].flatten()
-            new_vx = vx[:, frame_number + 1].flatten()
-        scatter.set_offsets(numpy.column_stack((new_x, new_vx)))
-        return scatter,
-
-    # CREATE PHASE SPACE ANIMATION
-    anim = FuncAnimation(fig_anim, update, init_func=setup_plot, save_count=nt)
-
-    # SAVE ANIMATION
-    f = "{}_phasespace.mp4"
-    writervideo = FFMpegWriter(fps=3000)
-    anim.save(f.format(file_name), writer=writervideo)
-    plt.close()
 
 
 # PLOT SPECTRUM WITH THEORETICAL LINES
@@ -623,7 +540,6 @@ if __name__ == '__main__':
     for file in file_list:
         plot_non_fourier(file, numpy.s_[0:2])
         # plot(file, "ion", "rho")
-        # plot_phase_space_animation(file, "ion")
     profiler.disable()
     s = io.StringIO()
     stats = pstats.Stats(profiler, stream=s).sort_stats('tottime')

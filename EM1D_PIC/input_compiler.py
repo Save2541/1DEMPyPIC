@@ -1,9 +1,10 @@
+import math
+
 import numpy
 
-import qol
-import user_input
-import math
-import constants
+from . import constants
+from . import qol
+from . import user_input
 
 
 def derive_parameters(sp_list, theta=user_input.theta, b0=user_input.b0, dx=user_input.dx, dt=user_input.dt,

@@ -1,11 +1,8 @@
-import qol
-import numpy
-import user_input
-import scipy.fft
-import digital_filtering
-import particle_mover
-import particles_to_grids
-import field_solver
+from . import field_solver
+from . import particle_mover
+from . import particles_to_grids
+from . import qol
+from . import user_input
 
 
 def first_step(species, grids, dx, dt, length, bx0, sin_theta, cos_theta, bz0, e_ext, epsilon, sqrt_mu_over_epsilon,

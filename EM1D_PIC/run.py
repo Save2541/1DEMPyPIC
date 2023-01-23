@@ -3,20 +3,20 @@ import time
 
 import numpy
 
-import output_list
-import particle_distributor
-import plasma_cauldron
-import particle_generator
-import grid_generator
-import scribe
-import unit_scale
-import qol
-import user_input
-import input_compiler
-import specie_list
-import initializer
-import main
-import zipper
+from . import grid_generator
+from . import initializer
+from . import input_compiler
+from . import main
+from . import output_list
+from . import particle_distributor
+from . import particle_generator
+from . import plasma_cauldron
+from . import qol
+from . import scribe
+from . import specie_list
+from . import unit_scale
+from . import user_input
+from . import zipper
 
 
 def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=user_input.output_names):

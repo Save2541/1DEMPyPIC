@@ -1,5 +1,5 @@
-import qol
-import constants
+from . import constants
+from . import qol
 
 
 def generate_plasma(preset):

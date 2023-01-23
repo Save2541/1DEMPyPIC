@@ -1,6 +1,6 @@
 import numpy
 
-import constants
+from . import constants
 
 
 def smooth(fourier_plot, sample_k, dx, weight=constants.w_smooth):

@@ -1,8 +1,10 @@
-import constants
 import math
+
 import numpy
 import scipy.fft
-import user_input
+
+from . import constants
+from . import user_input
 
 
 def electronvolt_to_kelvin(ev):

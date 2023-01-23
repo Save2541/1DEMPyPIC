@@ -1,6 +1,6 @@
 import numpy
 
-import user_input
+from . import user_input
 
 
 def init_weigh_to_grid(species, grids, dx, ng=user_input.ng):
