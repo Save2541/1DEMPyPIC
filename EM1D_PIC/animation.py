@@ -12,7 +12,7 @@ from . import qol
 
 def y_axis_limit(value_list):
     """
-    Set y-axis limit for plots.
+    Set y-axis limit for plots
     :param value_list: values to be plotted
     :return: y-axis limit
     """
@@ -27,10 +27,10 @@ def y_axis_limit(value_list):
 def set_default_parameters(specie, anim, time_step, add_plots, add_plot_keys, dot_size, plot_colors, fps,
                            frame_interval):
     """
-    Set default parameters for the function plot_non_fourier.
+    Set default parameters for the function plot_non_fourier
     :param specie: specie to focus on in the phase space animation
     :param anim: flag for animation
-    :param time_step: time step to be plotted, will be set to 0 for animation.
+    :param time_step: time step to be plotted, will be set to 0 for animation
     :param add_plots: shape of the additional plots above the phase space animation
     :param add_plot_keys: values to be plotted in the additional plots
     :param dot_size: size of particles in phase space plot
@@ -64,7 +64,7 @@ def set_default_parameters(specie, anim, time_step, add_plots, add_plot_keys, do
 
 def sanity_check(add_plot_keys, add_plots, plot_colors, n_sp):
     """
-    Check if user input is reasonable.
+    Check if user input is reasonable
     :param add_plot_keys: values to be plotted in the additional plots
     :param add_plots: shape of the additional plots above the phase space animation
     :param plot_colors: color to use for each specie, ordered by specie indices
@@ -79,7 +79,7 @@ def sanity_check(add_plot_keys, add_plots, plot_colors, n_sp):
 
 def set_variables(x, ng, dx):
     """
-    Set some variables.
+    Set some variables
     :param x: grid positions
     :param ng: number of grids
     :param dx: grid size
@@ -90,7 +90,7 @@ def set_variables(x, ng, dx):
 
 def merge_bottom_subplots(fig, axs):
     """
-    Merge all subplots in the bottom row to create a long subplot for phase space animation.
+    Merge all subplots in the bottom row to create a long subplot for phase space animation
     :param fig: figure
     :param axs: axes
     :return: merged bottom axis
@@ -104,7 +104,7 @@ def merge_bottom_subplots(fig, axs):
 
 def set_up_add_plots(loader, add_plots, add_plot_keys, axs, length, grid_x, time_step):
     """
-    Set up the additional plots.
+    Set up the additional plots
     :param loader: loaded data file
     :param add_plots: shape of the additional plots
     :param add_plot_keys: values to be plotted in the additional plots
@@ -118,7 +118,7 @@ def set_up_add_plots(loader, add_plots, add_plot_keys, axs, length, grid_x, time
     line_list = []
     for i in range(add_plots[0]):
         for j in range(add_plots[1]):
-            key = add_plot_keys[i, j]
+            key = add_plot_keys[i][j]
             if key == "rho":
                 array = loader['rho_list']
                 title = "rho"
@@ -144,13 +144,14 @@ def set_up_add_plots(loader, add_plots, add_plot_keys, axs, length, grid_x, time
             axis.set_xlim([0, length])
             axis.set_ylim(y_axis_limit(array))
             array_list.append(array)
-            line_list.append(axis.plot(grid_x, array[time_step]))
+            line, = axis.plot(grid_x, array[time_step])
+            line_list.append(line)
     return line_list, array_list
 
 
 def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_colors, length, specie, line_list):
     """
-    Set up phase space plot in the bottom axis.
+    Set up phase space plot in the bottom axis
     :param x: particle positions
     :param vx: particle x-velocities
     :param ax_bottom: bottom axis
@@ -177,7 +178,7 @@ def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_colors, l
 
 def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, fps, nt, file_name):
     """
-    Animate plots and save the animation to mp4 file.
+    Animate plots and save the animation to mp4 file
     :param fig: canvas
     :param x: particle positions
     :param vx: particle x-velocities
@@ -189,9 +190,10 @@ def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, f
     :param file_name: name of mp4 file
     :return: none
     """
+
     def animate(frame_number):
         """
-        Animation function to be called by FuncAnimation in its loop.
+        Animation function to be called by FuncAnimation in its loop
         :param frame_number: current frame number
         :return: list of updated lines
         """
@@ -217,7 +219,7 @@ def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, f
 
 def save_non_fourier_plot(file_name):
     """
-    Save non-animation plot.
+    Save non-animation plot
     :param file_name: name of png file
     :return: none
     """
@@ -230,10 +232,10 @@ def plot_non_fourier(file_name, specie=None, anim=True, time_step=None, add_plot
                      dot_size=None, plot_colors=None, fps=None, frame_interval=None):
     """
     PLOT GRID QUANTITIES WITHOUT FOURIER TRANSFORMING
-    :param file_name: name of the file which stores the arrays.
+    :param file_name: name of the file which stores the arrays
     :param specie: specie to focus on in the phase space animation
-    :param anim: make an animation or not.
-    :param time_step: time step to be plotted, only needed if not animated.
+    :param anim: make an animation or not
+    :param time_step: time step to be plotted, only needed if not animated
     :param add_plots: shape of the additional plots above the phase space animation
     :param add_plot_keys: values to be plotted in the additional plots
     :param dot_size: size of particles in phase space plot

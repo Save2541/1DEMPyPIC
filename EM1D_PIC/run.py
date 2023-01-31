@@ -3,20 +3,37 @@ import time
 
 import numpy
 
-from . import grid_generator
-from . import initializer
-from . import input_compiler
-from . import main
-from . import output_list
-from . import particle_distributor
-from . import particle_generator
-from . import plasma_cauldron
-from . import qol
-from . import scribe
-from . import specie_list
-from . import unit_scale
-from . import user_input
-from . import zipper
+from EM1D_PIC import grid_generator
+from EM1D_PIC import initializer
+from EM1D_PIC import input_compiler
+from EM1D_PIC import main
+from EM1D_PIC import output_list
+from EM1D_PIC import particle_distributor
+from EM1D_PIC import particle_generator
+from EM1D_PIC import plasma_cauldron
+from EM1D_PIC import qol
+from EM1D_PIC import scribe
+from EM1D_PIC import specie_list
+from EM1D_PIC import unit_scale
+from EM1D_PIC import user_input
+from EM1D_PIC import zipper
+
+
+def get_user_input(preset, n_sample, output_names):
+    """
+    Set default value to user input.
+    :param preset: plasma preset selected by the user
+    :param n_sample: number of particles whose info will be stored at this end
+    :param output_names: list of requested outputs
+    :return: preset, n_sample, output_names
+    """
+    if preset is None:
+        preset = user_input.preset
+    if n_sample is None:
+        n_sample = user_input.n_sample
+    if output_names is None:
+        output_names = user_input.output_names
+    return preset, n_sample, output_names
 
 
 def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=user_input.output_names):
@@ -27,6 +44,9 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     :param output_names: list of requested outputs
     :return: none
     """
+
+    # GET USER INPUT
+    preset, n_sample, output_names = get_user_input(preset, n_sample, output_names)
 
     # GENERATE PLASMA
     specie_names = plasma_cauldron.generate_plasma(preset)
