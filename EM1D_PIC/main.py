@@ -50,7 +50,7 @@ def main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_part
         """
 
         # MAIN PROGRAM
-        move_particles(species, grids, dx, dt, length, bx0, sin_theta, cos_theta, pool=None)  # move particles
+        move_particles(species, grids, dx, dt, length, bx0, sin_theta, cos_theta, pool=pool)  # move particles
         particles_to_grids.weigh_to_grid(grids, species, dx, sin_theta, cos_theta)  # weight to grid
         field_solver.solve_field_x(grids, dx, ksqi_over_epsilon, sample_k)  # solve Ex from rho (Poisson's eqn)
         if is_electromagnetic:

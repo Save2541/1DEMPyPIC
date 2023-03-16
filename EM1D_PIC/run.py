@@ -61,6 +61,7 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     qol.sanity_check(sp_list, almanac)
 
     # CREATE LOG (TEXT FILE)
+    print("Logging...")
     scribe.create_log(sp_list, almanac)
 
     # SCALE QUANTITIES TO SIMULATION UNITS
