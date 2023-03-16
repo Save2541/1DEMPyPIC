@@ -1,8 +1,8 @@
-import qol
-import particle_mover
-import particles_to_grids
-import field_solver
-import user_input
+from . import field_solver
+from . import particle_mover
+from . import particles_to_grids
+from . import qol
+from . import user_input
 
 
 def main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_particles_id, nt=user_input.nt,
@@ -41,15 +41,16 @@ def main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_part
     else:
         move_particles = update_to_move_particles_es
 
-    def main_loop(time_step):
+    def main_loop(time_step, pool):
         """
         Function to be looped
         :param time_step: current time step
+        :param pool: multiprocessing pool
         :return: True if last loop, False if not last loop
         """
 
         # MAIN PROGRAM
-        move_particles(species, grids, dx, dt, length, bx0, sin_theta, cos_theta)  # move particles
+        move_particles(species, grids, dx, dt, length, bx0, sin_theta, cos_theta, pool=None)  # move particles
         particles_to_grids.weigh_to_grid(grids, species, dx, sin_theta, cos_theta)  # weight to grid
         field_solver.solve_field_x(grids, dx, ksqi_over_epsilon, sample_k)  # solve Ex from rho (Poisson's eqn)
         if is_electromagnetic:
@@ -71,6 +72,9 @@ def main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_part
         return False
 
     # RUN THE MAIN LOOP FOR A NUMBER OF TIME STEPS
-    for count in range(1, nt):
-        if main_loop(count):
-            break
+    import multiprocessing as mp
+    with mp.get_context("spawn").Pool(processes=4) as pool:
+    #pool = None
+        for count in range(1, nt):
+            if main_loop(count, pool):
+                break

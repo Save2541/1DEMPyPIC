@@ -1,8 +1,10 @@
-import constants
 import math
+
 import numpy
 import scipy.fft
-import user_input
+
+from . import constants
+from . import user_input
 
 
 def electronvolt_to_kelvin(ev):
@@ -104,6 +106,7 @@ def sanity_check(sp_list, almanac):
         minimum)
     assert user_input.nt_sample <= user_input.nt, "NOT ENOUGH TIME STEPS TO STORE! nt_sample CANNOT BE GREATER THAN {}!".format(
         user_input.nt)
+    assert user_input.nt % user_input.nt_sample == 0, "nt IS NOT DIVISIBLE BY nt_sample!"
     if user_input.is_electromagnetic:
         assert constants.c * almanac["dt"] == almanac["dx"], "WRONG TIME STEP FOR EM CODE! USE dt = 1 * dx / c."
     if sp_list.wp[0] * almanac["dt"] > 0.3:
@@ -136,7 +139,7 @@ def get_sample_frequencies(dx, ng=user_input.ng):
     :param ng: number of grid cells
     :return: list of sample frequencies
     """
-    return 2 * math.pi * scipy.fft.rfftfreq(ng, dx)
+    return 2 * math.pi * scipy.fft.rfftfreq(int(ng), dx)
 
 
 def get_ksqi_over_epsilon(almanac):
@@ -148,3 +151,43 @@ def get_ksqi_over_epsilon(almanac):
     (length, dx, epsilon) = read_almanac(almanac, "length", "dx", "epsilon")
     return 1 / (numpy.arange(1, user_input.ng // 2 + 1) * 2 * math.pi / length * numpy.sinc(
         numpy.arange(1, user_input.ng // 2 + 1) * dx / length)) ** 2 / epsilon
+
+
+def get_sample_k(dx, ng):
+    """
+    Get sample wave numbers for theoretical line plots
+    :param dx: grid size
+    :param ng: number of grid cells
+    :return: array of sample wave numbers
+    """
+    return numpy.linspace(0.0, math.pi / dx, int(ng))
+
+
+def get_sample_w(dt, nt):
+    """
+    Get sample angular frequencies for theoretical line plots
+    :param dt: time step
+    :param nt: number of time steps
+    :return: array of sample angular frequencies
+    """
+    return numpy.linspace(0.0, math.pi / dt, int(nt))
+
+
+def extent_function(xcoords, ycoords):
+    """
+    Author: Sam Evans
+    returns extent (to go to imshow), given xcoords, ycoords. Assumes origin='lower'.
+    Use this method to properly align extent with middle of pixels.
+    (Noticeable when imshowing few enough pixels that individual pixels are visible.)
+
+    xcoords and ycoords should be arrays.
+    (This method uses their first & last values, and their lengths.)
+
+    returns extent == np.array([left, right, bottom, top]).
+    """
+    Nx = len(xcoords)
+    Ny = len(ycoords)
+    dx = (xcoords[-1] - xcoords[0]) / Nx
+    dy = (ycoords[-1] - ycoords[0]) / Ny
+    return numpy.array([*(xcoords[0] + numpy.array([0 - dx / 2, dx * Nx + dx / 2])),
+                        *(ycoords[0] + numpy.array([0 - dy / 2, dy * Ny + dy / 2]))])

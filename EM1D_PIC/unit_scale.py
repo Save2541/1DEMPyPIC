@@ -1,7 +1,8 @@
-import constants
-import qol
-import user_input
 import math
+
+from . import constants
+from . import qol
+from . import user_input
 
 
 def scale_quantities(sp_list, almanac):

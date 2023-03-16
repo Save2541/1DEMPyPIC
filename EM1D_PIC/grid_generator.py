@@ -1,5 +1,6 @@
 import numpy
-import user_input
+
+from . import user_input
 
 
 class GridPointList:

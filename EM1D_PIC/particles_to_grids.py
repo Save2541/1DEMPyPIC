@@ -1,6 +1,6 @@
 import numpy
 
-import user_input
+from . import user_input
 
 
 def init_weigh_to_grid(species, grids, dx, ng=user_input.ng):
@@ -103,13 +103,17 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, ng=user_input.ng):
 
         value = qc / dx * specie.vy / dx
         grids.jy_old = weigh_old(value, grids.jy_old)
+        grids.jy_old = grids.jy_old - numpy.mean(grids.jy_old)
         grids.jy = weigh_current(value, grids.jy)
+        grids.jy = grids.jy - numpy.mean(grids.jy)
 
         # WEIGH Jz
 
         value = qc / dx * (specie.vb0 * cos_theta - specie.vxp * sin_theta) / dx
         grids.jz_old = weigh_old(value, grids.jz_old)
+        grids.jz_old = grids.jz_old - numpy.mean(grids.jz_old)
         grids.jz = weigh_current(value, grids.jz)
+        grids.jz = grids.jz - numpy.mean(grids.jz)
 
         # WEIGH RHO
 

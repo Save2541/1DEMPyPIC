@@ -2,8 +2,8 @@ import os
 import time
 from datetime import timedelta
 
-import user_input
-import constants
+from . import constants
+from . import user_input
 
 
 def create_log(sp_list, almanac):
@@ -14,12 +14,12 @@ def create_log(sp_list, almanac):
     :return: none
     """
     # GET TIME STRING FOR FILE NAME
-    timestr = time.strftime("%Y%m%d-%H%M%S")
+    time_str = time.strftime("%Y%m%d-%H%M%S")
     if user_input.is_electromagnetic:
         mode = "EM"
     else:
         mode = "ES"
-    almanac["file name"] = "{}_nsp{}_theta{}_{}".format(timestr, sp_list.n_sp, user_input.theta, mode)
+    almanac["file name"] = "{}_{}".format(mode, time_str)
     path = "log/{}.txt".format(almanac["file name"])
     os.makedirs(os.path.dirname(path), exist_ok=True)
     log = open(path, "w")
@@ -144,3 +144,5 @@ def finish_log(start_time, file_name):
     print("Duration                        = {}".format(timedelta(seconds=end_time - start_time)), file=log)
     # CLOSE LOG FILE
     log.close()
+    # PRINT FILE NAME
+    print("File name = ", file_name)

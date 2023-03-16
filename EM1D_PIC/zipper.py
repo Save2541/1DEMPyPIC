@@ -3,9 +3,9 @@ import os
 import numpy
 import zarr
 
-import qol
-import user_input
-import unit_scale
+from . import qol
+from . import unit_scale
+from . import user_input
 
 
 def unpack_data(sp_list, almanac, output, grids):
