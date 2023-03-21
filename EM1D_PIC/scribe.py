@@ -144,3 +144,5 @@ def finish_log(start_time, file_name):
     print("Duration                        = {}".format(timedelta(seconds=end_time - start_time)), file=log)
     # CLOSE LOG FILE
     log.close()
+    # PRINT FILE NAME
+    print("File name = ", file_name)
