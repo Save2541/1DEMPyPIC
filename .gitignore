@@ -1,0 +1,7 @@
+/.idea
+/*.egg-info
+/venv
+/EM1D_PIC/*/
+/build
+/dist
+/EM1D_PIC/*.txt
