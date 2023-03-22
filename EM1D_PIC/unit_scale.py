@@ -56,7 +56,7 @@ def scale_quantities(sp_list, almanac):
     almanac["dt_sample"] = almanac["dt"] * user_input.nt / user_input.nt_sample  # duration per sample
 
     # PROPERTIES OF PIC PARTICLES
-    sp_list.charge = sp_list.wp ** 2 * almanac["length"] / sp_list.np * almanac[
+    sp_list.charge = sp_list.wp ** 2 * almanac["length"] / sp_list.np_all * almanac[
         "epsilon"] / sp_list.qm  # charge per PIC particle
     sp_list.mass = sp_list.charge / sp_list.qm  # mass per PIC particle
 

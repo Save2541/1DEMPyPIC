@@ -1,14 +1,16 @@
 import numpy
 
 from . import user_input
+from . import multiprocessor
 
 
-def init_weigh_to_grid(species, grids, dx, ng=user_input.ng):
+def init_weigh_to_grid(species, grids, dx, comm, ng=user_input.ng):
     """
     Initial weighting of particles to grid values (x to rho, hat function)
     :param species: particle list
     :param grids: grid list
     :param dx: grid size
+    :param comm: mpi comm
     :param ng: number of grids
     :return: none
     """
@@ -26,9 +28,10 @@ def init_weigh_to_grid(species, grids, dx, ng=user_input.ng):
         # ADD DENSITIES TO CORRESPONDING GRIDS
         grids.rho = grids.rho + numpy.bincount(nearest_left_grid, weights=d_rho_left, minlength=ng) + numpy.bincount(
             nearest_right_grid, weights=d_rho_right, minlength=ng)
+    multiprocessor.gather_rho(grids, comm, ng)
 
 
-def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, ng=user_input.ng):
+def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, ng=user_input.ng):
     """
     Update grid values based on particle values i.e. (x,v) to (rho,j)
     :param grids: list of grid cells
@@ -36,6 +39,7 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, ng=user_input.ng):
     :param dx: grid size
     :param sin_theta: sine of theta, where theta is the angle between B_0 and the z axis
     :param cos_theta: cosine of theta, where theta is the angle between B_0 and the z axis
+    :param comm: mpi comm
     :param ng: number of grid cells
     :return: none
     """
@@ -103,19 +107,25 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, ng=user_input.ng):
 
         value = qc / dx * specie.vy / dx
         grids.jy_old = weigh_old(value, grids.jy_old)
-        grids.jy_old = grids.jy_old - numpy.mean(grids.jy_old)
         grids.jy = weigh_current(value, grids.jy)
-        grids.jy = grids.jy - numpy.mean(grids.jy)
 
         # WEIGH Jz
 
         value = qc / dx * (specie.vb0 * cos_theta - specie.vxp * sin_theta) / dx
         grids.jz_old = weigh_old(value, grids.jz_old)
-        grids.jz_old = grids.jz_old - numpy.mean(grids.jz_old)
         grids.jz = weigh_current(value, grids.jz)
-        grids.jz = grids.jz - numpy.mean(grids.jz)
 
         # WEIGH RHO
 
         value = qc / dx / dx
         grids.rho = weigh_current(value, grids.rho)
+
+    # GET ARGUMENTS
+    args = (grids, comm, ng)
+
+    # GATHER RHO
+    multiprocessor.gather_rho(*args)
+
+    # GATHER J
+    multiprocessor.gather_j(*args)
+

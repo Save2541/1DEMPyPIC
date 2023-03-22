@@ -7,6 +7,7 @@ from EM1D_PIC import grid_generator
 from EM1D_PIC import initializer
 from EM1D_PIC import input_compiler
 from EM1D_PIC import main
+from EM1D_PIC import multiprocessor
 from EM1D_PIC import output_list
 from EM1D_PIC import particle_distributor
 from EM1D_PIC import particle_generator
@@ -45,6 +46,9 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     :return: none
     """
 
+    # SETUP MULTIPROCESSING
+    comm, size, rank = multiprocessor.setup_mpi()
+
     # GET USER INPUT
     preset, n_sample, output_names = get_user_input(preset, n_sample, output_names)
 
@@ -55,19 +59,21 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     sp_list = specie_list.SpecieList(len(specie_names))
 
     # COMPILE INPUT AND DERIVE QUANTITIES
-    almanac = input_compiler.compile_input(sp_list, specie_names)
+    almanac = input_compiler.compile_input(sp_list, specie_names, size, rank)
 
     # PERFORM SANITY CHECK (PROGRAM WILL BREAK IF USER INPUT IS UNREASONABLE)
     qol.sanity_check(sp_list, almanac)
 
     # CREATE LOG (TEXT FILE)
-    scribe.create_log(sp_list, almanac)
+    if rank == 0:
+        scribe.create_log(sp_list, almanac)
 
     # SCALE QUANTITIES TO SIMULATION UNITS
     unit_scale.scale_quantities(sp_list, almanac)
 
     # RECORD SCALE QUANTITIES TO LOG
-    scribe.add_to_log(sp_list, almanac)
+    if rank == 0:
+        scribe.add_to_log(sp_list, almanac)
 
     # GENERATE GRID POINTS (FROM LIST OF POSITIONS)
     grids = grid_generator.generate_grids(almanac)
@@ -97,16 +103,21 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     ksqi_over_epsilon = qol.get_ksqi_over_epsilon(almanac)
 
     #  INDICES OF PARTICLES TO BE PLOTTED IN THE ANIMATION
-    plot_particles_id = rng.choice(numpy.amin(sp_list.np), n_sample)
+    if rank == 0:
+        plot_particles_id = rng.choice(numpy.amin(sp_list.np), n_sample)
 
     # INITIALIZE ARRAYS TO STORE OUTPUT DATA
-    output = output_list.OutputList(output_names, sp_list.n_sp)
+        output = output_list.OutputList(output_names, sp_list.n_sp)
+
+    else:
+        plot_particles_id = []
+        output = output_list.OutputList([], sp_list.n_sp)
 
     # GET STARTING TIME
     start_time = time.monotonic()
 
     # INITIALIZE GRIDS
-    initializer.initialize(species, grids, almanac, sample_k, ksqi_over_epsilon, output, plot_particles_id)
+    initializer.initialize(species, grids, almanac, sample_k, ksqi_over_epsilon, output, plot_particles_id, comm)
 
     # RUN MAIN PROGRAM WITH PROFILER
     if __name__ == '__main__':
@@ -115,21 +126,23 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
 
         profiler = cProfile.Profile()
         profiler.enable()
-        main.main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_particles_id)
+        main.main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_particles_id, comm, rank)
         profiler.disable()
         s = io.StringIO()
         stats = pstats.Stats(profiler, stream=s).sort_stats('tottime')
         stats.print_stats()
 
-        with open('outstats.txt', 'w+') as f:
-            f.write(s.getvalue())
+        if rank == 0:
+            with open('outstats.txt', 'w+') as f:
+                f.write(s.getvalue())
 
-    # OUTPUT RUNTIME AND FINISH LOG
-    file_name = almanac["file name"]
-    scribe.finish_log(start_time, file_name)
+    if rank == 0:
+        # OUTPUT RUNTIME AND FINISH LOG
+        file_name = almanac["file name"]
+        scribe.finish_log(start_time, file_name)
 
-    # SAVE DATA TO ZIP FILE
-    zipper.save_to_zip(sp_list, almanac, output, grids)
+        # SAVE DATA TO ZIP FILE
+        zipper.save_to_zip(sp_list, almanac, output, grids)
 
 
 run()

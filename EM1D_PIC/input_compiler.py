@@ -5,6 +5,7 @@ import numpy
 from . import constants
 from . import qol
 from . import user_input
+from . import multiprocessor
 
 
 def derive_parameters(sp_list, theta=user_input.theta, b0=user_input.b0, dx=user_input.dx, dt=user_input.dt,
@@ -54,11 +55,13 @@ def derive_parameters(sp_list, theta=user_input.theta, b0=user_input.b0, dx=user
             "bz0": bz0, "bx0": bx0, "lambda_d": lambda_d, "rho_mass": rho_mass}
 
 
-def compile_input(sp_list, specie_names, ng=user_input.ng):
+def compile_input(sp_list, specie_names, size, rank, ng=user_input.ng):
     """
     Compile input into usable parameters in specie list
     :param sp_list: specie list
     :param specie_names: input dictionary describing plasma composition
+    :param size: number of processors
+    :param rank: rank of processor
     :param ng: number of grid cells
     :return: a dictionary of useful numbers in mks
     """
@@ -72,7 +75,9 @@ def compile_input(sp_list, specie_names, ng=user_input.ng):
         sp_list.density[iterator] = parameters["number density"]
         sp_list.temperature[iterator] = parameters["temperature"]
         sp_list.drift_velocity[iterator] = parameters["drift velocity"]
-        sp_list.np[iterator] = parameters["number of simulated particles per grid cell"] * ng
+        np = parameters["number of simulated particles per grid cell"] * ng
+        sp_list.np_all[iterator] = np
+        sp_list.np[iterator] = multiprocessor.get_ranked_np(np, size, rank)
         sp_list.init_d_wv[specie_name] = parameters["initial density wave"]
         sp_list.init_v_wv[specie_name] = parameters["initial velocity wave"]
         iterator += 1
