@@ -72,9 +72,9 @@ def main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_part
         return False
 
     # RUN THE MAIN LOOP FOR A NUMBER OF TIME STEPS
-    import multiprocessing as mp
-    with mp.get_context("spawn").Pool(processes=4) as pool:
-    #pool = None
-        for count in range(1, nt):
-            if main_loop(count, pool):
-                break
+    #import multiprocessing as mp
+    #with mp.get_context("spawn").Pool(processes=4) as pool:
+    pool = None
+    for count in range(1, nt):
+        if main_loop(count, pool):
+            break
