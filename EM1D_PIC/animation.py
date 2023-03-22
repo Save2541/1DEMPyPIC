@@ -24,8 +24,7 @@ def y_axis_limit(value_list):
         return [-1, 1]
 
 
-def set_default_parameters(specie, anim, time_step, add_plots, add_plot_keys, dot_size, plot_colors, fps,
-                           frame_interval):
+def set_default_parameters(specie, anim, time_step, add_plots, add_plot_keys, dot_size, plot_species, plot_colors, fps, frame_interval):
     """
     Set default parameters for the function plot_non_fourier
     :param specie: specie to focus on in the phase space animation
@@ -34,7 +33,8 @@ def set_default_parameters(specie, anim, time_step, add_plots, add_plot_keys, do
     :param add_plots: shape of the additional plots above the phase space animation
     :param add_plot_keys: values to be plotted in the additional plots
     :param dot_size: size of particles in phase space plot
-    :param plot_colors: color to use for each specie, ordered by specie indices
+    :param plot_species: species to plot in phase space
+    :param plot_colors: color to use for each specie
     :param fps: frame rate per second
     :param frame_interval: number of time steps to skip per frame plus one
     :return: parameters set to user-inputted values in plot_config
@@ -49,6 +49,8 @@ def set_default_parameters(specie, anim, time_step, add_plots, add_plot_keys, do
         add_plot_keys = plot_config.add_plots_keys
     if dot_size is None:
         dot_size = plot_config.dot_size
+    if plot_species is None:
+        plot_species = plot_config.plot_species
     if plot_colors is None:
         plot_colors = plot_config.plot_colors
     if fps is None:
@@ -57,24 +59,27 @@ def set_default_parameters(specie, anim, time_step, add_plots, add_plot_keys, do
         frame_interval = plot_config.frame_interval
     if anim:
         time_step = 0
-    if specie == 0:
+    if specie is None:
         specie = numpy.s_[:]
-    return specie, time_step, add_plots, add_plot_keys, dot_size, plot_colors, fps, frame_interval
+    if plot_species == "all":
+        plot_species = numpy.s_[:]
+
+    return specie, time_step, add_plots, add_plot_keys, dot_size, plot_species, plot_colors, fps, frame_interval
 
 
-def sanity_check(add_plot_keys, add_plots, plot_colors, n_sp):
+def sanity_check(add_plot_keys, add_plots, plot_species, plot_colors, n_sp):
     """
     Check if user input is reasonable
     :param add_plot_keys: values to be plotted in the additional plots
     :param add_plots: shape of the additional plots above the phase space animation
-    :param plot_colors: color to use for each specie, ordered by specie indices
+    :param plot_species: species to be plotted in phase space
+    :param plot_colors: color to use for each specie
     :param n_sp: number of species
     :return: none
     """
-    if numpy.array(add_plot_keys).shape != add_plots:
-        assert False, "The shape of add_plot_keys is not equal to add_plots!"
-    if len(plot_colors) != n_sp:
-        assert False, "The number of plot colors is not equal to the number of species!"
+    assert numpy.array(add_plot_keys).shape == add_plots, "The shape of add_plot_keys is not equal to add_plots!"
+    assert len(plot_colors) == len(plot_species), "The length of plot_colors is not equal to the length of plot_species!"
+    assert len(plot_species) <= n_sp, "The length of plot_species is greater than the total number of species!"
 
 
 def set_variables(x, ng, dx):
@@ -149,7 +154,7 @@ def set_up_add_plots(loader, add_plots, add_plot_keys, axs, length, grid_x, time
     return line_list, array_list
 
 
-def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_colors, length, specie, line_list):
+def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, plot_colors, length, specie, line_list):
     """
     Set up phase space plot in the bottom axis
     :param x: particle positions
@@ -157,14 +162,15 @@ def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_colors, l
     :param ax_bottom: bottom axis
     :param dot_size: particle dot size in the plot
     :param n_sample: number of sample particles per specie
-    :param plot_colors: color to use for each specie, ordered by specie indices
+    :param plot_species: species to be plotted in phase space
+    :param plot_colors: color to use for each specie
     :param length: spatial length of the simulation
     :param specie: specie to focus on in the phase space animation
     :param line_list: list of lines to be animated
     :return: none
     """
-    init_x = x[:, 0].flatten()
-    init_vx = vx[:, 0].flatten()
+    init_x = x[plot_species, 0].flatten()
+    init_vx = vx[plot_species, 0].flatten()
     bottom_line = ax_bottom.scatter(init_x, init_vx, s=dot_size)  # draw an initial scatter plot
     color_list = numpy.concatenate([([i] * n_sample) for i in plot_colors], axis=0)
     bottom_line.set_facecolors(color_list)
@@ -176,7 +182,7 @@ def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_colors, l
     ax_bottom.set_ylim(y_axis_limit(vx[specie]))
 
 
-def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, fps, nt, file_name):
+def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, fps, nt, file_name, plot_species):
     """
     Animate plots and save the animation to mp4 file
     :param fig: canvas
@@ -188,6 +194,7 @@ def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, f
     :param fps: frame rate
     :param nt: number of time steps
     :param file_name: name of mp4 file
+    :param plot_species: species to be plotted in phase space
     :return: none
     """
 
@@ -201,8 +208,8 @@ def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, f
         print("Animation Progress: {}/{}.".format(frame_number, nt))
         for index in range(len(line_list) - 1):
             line_list[index].set_ydata(array_list[index][frame_number])
-        new_x = x[:, frame_number].flatten()
-        new_vx = vx[:, frame_number].flatten()
+        new_x = x[plot_species, frame_number].flatten()
+        new_vx = vx[plot_species, frame_number].flatten()
         line_list[-1].set_offsets(numpy.column_stack((new_x, new_vx)))
         return line_list
 
@@ -229,7 +236,7 @@ def save_non_fourier_plot(file_name):
 
 
 def plot_non_fourier(file_name, specie=None, anim=True, time_step=None, add_plots=None, add_plot_keys=None,
-                     dot_size=None, plot_colors=None, fps=None, frame_interval=None):
+                     dot_size=None, plot_species=None, plot_colors=None, fps=None, frame_interval=None):
     """
     PLOT GRID QUANTITIES WITHOUT FOURIER TRANSFORMING
     :param file_name: name of the file which stores the arrays
@@ -239,14 +246,14 @@ def plot_non_fourier(file_name, specie=None, anim=True, time_step=None, add_plot
     :param add_plots: shape of the additional plots above the phase space animation
     :param add_plot_keys: values to be plotted in the additional plots
     :param dot_size: size of particles in phase space plot
-    :param plot_colors: color to use for each specie, ordered by specie indices
+    :param plot_species: species to plot in phase space
+    :param plot_colors: color to use for each specie
     :param fps: frame rate
     :param frame_interval: number of time steps to skip per frame plus one
     :return:
     """
     # SET DEFAULT PARAMETERS
-    specie, time_step, add_plots, add_plot_keys, dot_size, plot_colors, fps, frame_interval = set_default_parameters(
-        specie, anim, time_step, add_plots, add_plot_keys, dot_size, plot_colors, fps, frame_interval)
+    specie, time_step, add_plots, add_plot_keys, dot_size, plot_species, plot_colors, fps, frame_interval = set_default_parameters(specie, anim, time_step, add_plots, add_plot_keys, dot_size, plot_species, plot_colors, fps, frame_interval)
 
     # SET VIDEO WRITER PATH
     rcParams['animation.ffmpeg_path'] = r'ffmpeg\\bin\\ffmpeg.exe'
@@ -261,10 +268,10 @@ def plot_non_fourier(file_name, specie=None, anim=True, time_step=None, add_plot
     n_sp, n_sample, length = set_variables(x, ng, dx)
 
     # CHECK IF INPUT IS REASONABLE
-    sanity_check(add_plot_keys, add_plots, plot_colors, n_sp)
+    sanity_check(add_plot_keys, add_plots, plot_species, plot_colors, n_sp)
 
     # SET UP CANVAS
-    fig, axs = plt.subplots(add_plots[0] + 1, add_plots[1], figsize=[9, 4.8])
+    fig, axs = plt.subplots(add_plots[0] + 1, add_plots[1], figsize=[18, 9.6])
 
     # MERGE BOTTOM SUBPLOTS
     ax_bottom = merge_bottom_subplots(fig, axs)
@@ -273,14 +280,14 @@ def plot_non_fourier(file_name, specie=None, anim=True, time_step=None, add_plot
     line_list, array_list = set_up_add_plots(loader, add_plots, add_plot_keys, axs, length, grid_x, time_step)
 
     # SET PHASE SPACE PLOT
-    set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_colors, length, specie, line_list)
+    set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, plot_colors, length, specie, line_list)
 
     # PREVENT PLOT OVERLAPS
     plt.tight_layout()
 
     if anim:
         # ANIMATE AND SAVE TO MP4
-        animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, fps, nt, file_name)
+        animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, fps, nt, file_name, plot_species)
 
     else:
         # SAVE PLOT AS IS (NO ANIMATION)
