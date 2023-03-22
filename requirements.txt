@@ -1,0 +1,6 @@
+numpy
+setuptools
+matplotlib
+zarr
+scipy
+mpi4py
