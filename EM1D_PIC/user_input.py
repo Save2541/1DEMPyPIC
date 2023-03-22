@@ -18,7 +18,7 @@ e_ext = 0  # electric field strength (V/m)
 preset = 3
 
 # PLOT SPECIFICATIONS
-n_sample = 13653  # number of particles to plot per specie
+n_sample = 6826  # number of particles to plot per specie
 nt_sample = 1024 #2048  # ng * 32  # how many time steps to store (use powers of 2)
 
 # OUTPUT SPECIFICATIONS
