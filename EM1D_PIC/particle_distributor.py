@@ -19,13 +19,13 @@ def distribute_positions(sp_list, almanac, rng):
         x_list[sp_list.name[i]] = rng.uniform(0, almanac["length"], size=sp_list.np[i])
 
     # INITIAL DENSITY WAVES
-    xx = numpy.linspace(0, almanac["length"], int(1E8))  # evenly spaced choices of x
+    xx = numpy.linspace(0, almanac["length"], int(1E6))  # evenly spaced choices of x
     for specie_key in x_list:
         nw = sp_list.init_d_wv[specie_key]["number of waves"]
         amplitude = sp_list.init_d_wv[specie_key]["amplitude"]
         prob_list = 1 + amplitude * numpy.sin(qol.number_of_waves_to_wave_number(nw, almanac[
             "length"]) * xx)  # probability of particles to be in each grid cell
-        prob_list /= sum(prob_list)  # normalized probability distribution
+        prob_list /= numpy.sum(prob_list)  # normalized probability distribution
         number = len(x_list[specie_key])  # number of particles
         x_list[specie_key] = numpy.random.choice(xx, number, p=prob_list)
     return x_list
