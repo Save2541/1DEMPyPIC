@@ -39,7 +39,7 @@ def get_user_input(preset, n_sample, output_names):
 
 def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=user_input.output_names):
     """
-    Run the program.
+    Run the program
     :param preset: plasma preset selected by the user
     :param n_sample: number of particles whose info will be stored at this end
     :param output_names: list of requested outputs
@@ -47,7 +47,7 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     """
 
     # SETUP MULTIPROCESSING
-    comm, size, rank = multiprocessor.setup_mpi()
+    comm, size, rank, basket = multiprocessor.setup_mpi()
 
     # GET USER INPUT
     preset, n_sample, output_names = get_user_input(preset, n_sample, output_names)
@@ -106,7 +106,7 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     if rank == 0:
         plot_particles_id = rng.choice(numpy.amin(sp_list.np), n_sample)
 
-    # INITIALIZE ARRAYS TO STORE OUTPUT DATA
+        # INITIALIZE ARRAYS TO STORE OUTPUT DATA
         output = output_list.OutputList(output_names, sp_list.n_sp)
 
     else:
@@ -117,7 +117,8 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     start_time = time.monotonic()
 
     # INITIALIZE GRIDS
-    initializer.initialize(species, grids, almanac, sample_k, ksqi_over_epsilon, output, plot_particles_id, comm)
+    initializer.initialize(species, grids, almanac, sample_k, ksqi_over_epsilon, output, plot_particles_id, comm,
+                           basket)
 
     # RUN MAIN PROGRAM WITH PROFILER
     if __name__ == '__main__':
@@ -126,7 +127,7 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
 
         profiler = cProfile.Profile()
         profiler.enable()
-        main.main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_particles_id, comm, rank)
+        main.main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_particles_id, comm, rank, basket)
         profiler.disable()
         s = io.StringIO()
         stats = pstats.Stats(profiler, stream=s).sort_stats('tottime')

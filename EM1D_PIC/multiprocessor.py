@@ -1,16 +1,20 @@
 import numpy
 from mpi4py import MPI
 
+from . import user_input
 
-def setup_mpi():
+
+def setup_mpi(ng=user_input.ng):
     """
     Setup MPI
-    :return: comm, size, rank
+    :param ng: number of grids
+    :return: comm, size, rank, global_array
     """
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
-    return comm, size, rank
+    basket = numpy.zeros(ng)
+    return comm, size, rank, basket
 
 
 def get_ranked_np(np, size, rank):
@@ -21,43 +25,39 @@ def get_ranked_np(np, size, rank):
     :param rank: processor rank
     :return: number of particles in the processor
     """
-    np_list = [np // size + (1 if x < np % size else 0) for x in range(size)]
+    np_per_rank = np//size
+    np_list = [np_per_rank + (1 if x < np % size else 0) for x in range(size)]
     return np_list[rank]
 
 
-def gather_rho(grids, comm, ng):
+def gather_rho(grids, comm, basket):
     """
     Gather rho from all processors
     :param grids: grid list
     :param comm: mpi comm
-    :param ng: number of grids
+    :param basket: reusable array for gathering
     :return:
     """
-    global_rho = numpy.zeros(ng)
-    comm.Allreduce(grids.rho, global_rho)
-    grids.rho = global_rho
+    comm.Allreduce(grids.rho, basket)
+    grids.rho = basket
 
 
-def gather_j(grids, comm, ng):
+def gather_j(grids, comm, basket):
     """
     Gather j from all processors
     :param grids: grid list
     :param comm: mpi comm
-    :param ng: number of grids
+    :param basket: reusable array for gathering
     :return:
     """
-    global_jy_old = numpy.zeros(ng)
-    global_jy = numpy.zeros(ng)
-    global_jz_old = numpy.zeros(ng)
-    global_jz = numpy.zeros(ng)
-    comm.Allreduce(grids.jy_old, global_jy_old)
-    comm.Allreduce(grids.jy, global_jy)
-    comm.Allreduce(grids.jz_old, global_jz_old)
-    comm.Allreduce(grids.jz, global_jz)
-    grids.jy_old = global_jy_old - numpy.mean(global_jy_old)
-    grids.jy = global_jy - numpy.mean(global_jy)
-    grids.jz_old = global_jz_old - numpy.mean(global_jz_old)
-    grids.jz = global_jz - numpy.mean(global_jz)
+    comm.Allreduce(grids.jy_old, basket)
+    grids.jy_old = basket - numpy.mean(basket)
+    comm.Allreduce(grids.jy, basket)
+    grids.jy = basket - numpy.mean(basket)
+    comm.Allreduce(grids.jz_old, basket)
+    grids.jz_old = basket - numpy.mean(basket)
+    comm.Allreduce(grids.jz, basket)
+    grids.jz = basket - numpy.mean(basket)
 
 
 

@@ -19,7 +19,7 @@ def distribute_positions(sp_list, almanac, rng):
         x_list[sp_list.name[i]] = rng.uniform(0, almanac["length"], size=sp_list.np[i])
 
     # INITIAL DENSITY WAVES
-    xx = numpy.linspace(0, almanac["length"], int(1E6))  # evenly spaced choices of x
+    xx = numpy.linspace(0, almanac["length"], int(1E5), endpoint=False)  # evenly spaced choices of x
     for specie_key in x_list:
         nw = sp_list.init_d_wv[specie_key]["number of waves"]
         amplitude = sp_list.init_d_wv[specie_key]["amplitude"]

@@ -3,7 +3,7 @@ is_electromagnetic = True
 
 # SIMULATION GRID SPECIFICATIONS
 ng = 8192 #8192  # number of grids (please use powers of 2 e.g. 4, 8, 1024)
-nt = 32768 #536870912 #33554432 #131072  # number of time steps to run (please use powers of 2 e.g. 4, 8, 1024)
+nt = 32768 #536870912 # number of time steps to run (please use powers of 2 e.g. 4, 8, 1024)
 dx = 1  # grid size in terms of the Debye length (dx <= 1 for accurate result)
 dt = 1  # time step in terms of dx / c (MUST BE 1 FOR EM)
 
