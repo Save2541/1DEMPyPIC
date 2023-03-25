@@ -19,15 +19,23 @@ def distribute_positions(sp_list, almanac, rng):
         x_list[sp_list.name[i]] = rng.uniform(0, almanac["length"], size=sp_list.np[i])
 
     # INITIAL DENSITY WAVES
-    xx = numpy.linspace(0, almanac["length"], int(1E5), endpoint=False)  # evenly spaced choices of x
-    for specie_key in x_list:
-        nw = sp_list.init_d_wv[specie_key]["number of waves"]
-        amplitude = sp_list.init_d_wv[specie_key]["amplitude"]
-        prob_list = 1 + amplitude * numpy.sin(qol.number_of_waves_to_wave_number(nw, almanac[
-            "length"]) * xx)  # probability of particles to be in each grid cell
-        prob_list /= numpy.sum(prob_list)  # normalized probability distribution
-        number = len(x_list[specie_key])  # number of particles
-        x_list[specie_key] = numpy.random.choice(xx, number, p=prob_list)
+    def initialize_density_waves():
+        xx = numpy.linspace(0, almanac["length"], int(1E6), endpoint=False)  # evenly spaced choices of x
+        for specie_key in x_list:
+            nw = sp_list.init_d_wv[specie_key]["number of waves"]
+            amplitude = sp_list.init_d_wv[specie_key]["amplitude"]
+            prob_list = 1 + amplitude * numpy.sin(qol.number_of_waves_to_wave_number(nw, almanac[
+                "length"]) * xx)  # probability of particles to be in each grid cell
+            prob_list /= numpy.sum(prob_list)  # normalized probability distribution
+            number = len(x_list[specie_key])  # number of particles
+            x_list[specie_key] = numpy.random.choice(xx, number, p=prob_list)
+
+    # CHECK IF DENSITY WAVES NEED TO BE INITIALIZED
+    for sp_key in x_list:
+        if sp_list.init_d_wv[sp_key]["number of waves"] != 0 and sp_list.init_d_wv[sp_key]["amplitude"] != 0:
+            initialize_density_waves()
+            break
+
     return x_list
 
 
