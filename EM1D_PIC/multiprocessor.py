@@ -38,6 +38,7 @@ def gather_rho(grids, comm, basket):
     :param basket: reusable array for gathering
     :return:
     """
+    basket = numpy.zeros_like(basket)
     comm.Allreduce(grids.rho, basket)
     grids.rho = basket
 
@@ -50,12 +51,16 @@ def gather_j(grids, comm, basket):
     :param basket: reusable array for gathering
     :return:
     """
+    basket = numpy.zeros_like(basket)
     comm.Allreduce(grids.jy_old, basket)
     grids.jy_old = basket - numpy.mean(basket)
+    basket = numpy.zeros_like(basket)
     comm.Allreduce(grids.jy, basket)
     grids.jy = basket - numpy.mean(basket)
+    basket = numpy.zeros_like(basket)
     comm.Allreduce(grids.jz_old, basket)
     grids.jz_old = basket - numpy.mean(basket)
+    basket = numpy.zeros_like(basket)
     comm.Allreduce(grids.jz, basket)
     grids.jz = basket - numpy.mean(basket)
 
