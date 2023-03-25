@@ -231,7 +231,7 @@ def save_non_fourier_plot(file_name):
     :return: none
     """
     path = 'fig/{}_NF.png'.format(file_name)
-    os.makedirs(path, exist_ok=True)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     plt.savefig(path)  # save figure
 
 
