@@ -38,8 +38,9 @@ def generate_plasma(preset):
                 **qol.no_initial_wave()
             },
             "proton": {
-                "mass": 100 * constants.me_real,
-                "charge": constants.qe_real,
+                **qol.realistic_protons(),
+                #"mass": 100 * constants.me_real,
+                #"charge": constants.qe_real,
                 "number density": 1E8,
                 "temperature": 1E3,
                 "drift velocity": 0,

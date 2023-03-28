@@ -4,14 +4,13 @@ from . import user_input
 from . import multiprocessor
 
 
-def init_weigh_to_grid(species, grids, dx, comm, basket, ng=user_input.ng):
+def init_weigh_to_grid(species, grids, dx, comm, ng=user_input.ng):
     """
     Initial weighting of particles to grid values (x to rho, hat function)
     :param species: particle list
     :param grids: grid list
     :param dx: grid size
     :param comm: mpi comm
-    :param basket: reusable array for gathering
     :param ng: number of grids
     :return: none
     """
@@ -29,10 +28,10 @@ def init_weigh_to_grid(species, grids, dx, comm, basket, ng=user_input.ng):
         # ADD DENSITIES TO CORRESPONDING GRIDS
         grids.rho = grids.rho + numpy.bincount(nearest_left_grid, weights=d_rho_left, minlength=ng) + numpy.bincount(
             nearest_right_grid, weights=d_rho_right, minlength=ng)
-    multiprocessor.gather_rho(grids, comm, basket)
+    multiprocessor.gather_rho(grids, comm)
 
 
-def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, basket, ng=user_input.ng):
+def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, ng=user_input.ng):
     """
     Update grid values based on particle values i.e. (x,v) to (rho,j)
     :param grids: list of grid cells
@@ -41,7 +40,6 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, basket, ng=use
     :param sin_theta: sine of theta, where theta is the angle between B_0 and the z axis
     :param cos_theta: cosine of theta, where theta is the angle between B_0 and the z axis
     :param comm: mpi comm
-    :param basket: reusable array for gathering
     :param ng: number of grid cells
     :return: none
     """
@@ -123,7 +121,7 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, basket, ng=use
         grids.rho = weigh_current(value, grids.rho)
 
     # GET ARGUMENTS
-    args = (grids, comm, basket)
+    args = (grids, comm)
 
     # GATHER RHO
     multiprocessor.gather_rho(*args)
