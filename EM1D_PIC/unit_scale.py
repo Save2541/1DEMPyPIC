@@ -52,7 +52,7 @@ def scale_quantities(sp_list, almanac):
     # SCALED GRID SIZES
     almanac["dx"] /= almanac["slu"]  # spatial grid size
     almanac["length"] = user_input.ng * almanac["dx"]  # length of the system
-    almanac["dt"] = almanac["dx"] / almanac["c"]  # duration of time step
+    almanac["dt"] /= almanac["stu"]  # duration of time step
     almanac["dt_sample"] = almanac["dt"] * user_input.nt / user_input.nt_sample  # duration per sample
 
     # PROPERTIES OF PIC PARTICLES
