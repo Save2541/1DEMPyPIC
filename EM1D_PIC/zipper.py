@@ -33,16 +33,16 @@ def unpack_data(sp_list, almanac, output, grids):
         i += 1
     (file_name, b0, rho, c, dx, dt, theta) = qol.read_almanac(almanac, "file name", "b0", "rho_mass", "c", "dx",
                                                               "dt_sample", "theta")
-    (ex, ey, ez, by, bz, rho_list, jy, jz, x, vx) = output.get_output("ex", "ey", "ez", "by", "bz", "rho", "jy", "jz",
-                                                                      "x", "v")
+    (ex, ey, ez, by, bz, rho_list, jy, jz, den, x, vx) = output.get_output("ex", "ey", "ez", "by", "bz", "rho", "jy",
+                                                                           "jz", "den", "x", "v")
     grid_x = grids.x
     return (
         n_sp, kt, m, wp, wc, v_th, init_d_k, init_v_k, file_name, b0, rho, c, dx, dt, theta, ex, ey, ez, by, bz,
         rho_list,
-        jy, jz, x, vx, grid_x)
+        jy, jz, den, x, vx, grid_x)
 
 
-def convert_units(almanac, kt, wp, wc, v_th, b0, c, dx, dt, ex, ey, ez, by, bz, rho_list, jy, jz, x, vx, grid_x):
+def convert_units(almanac, kt, wp, wc, v_th, b0, c, dx, dt, ex, ey, ez, by, bz, rho_list, jy, jz, den, x, vx, grid_x):
     """
     Convert data from simulation units into SI units
     :param almanac: dictionary of useful values
@@ -62,6 +62,7 @@ def convert_units(almanac, kt, wp, wc, v_th, b0, c, dx, dt, ex, ey, ez, by, bz, 
     :param rho_list: recorded charge density
     :param jy: recorded y-current density
     :param jz: recorded z-current density
+    :param den: recorded number density
     :param x: recorded particle positions
     :param vx: recorded particle x-velocity
     :param grid_x: grid positions
@@ -83,31 +84,40 @@ def convert_units(almanac, kt, wp, wc, v_th, b0, c, dx, dt, ex, ey, ez, by, bz, 
     rho_list = unit_scale.convert_to_coulombs_per_cubic_meter(rho_list, almanac)
     jy = unit_scale.convert_to_amperes_per_square_meter(jy, almanac)
     jz = unit_scale.convert_to_amperes_per_square_meter(jz, almanac)
+    den = unit_scale.convert_to_particles_per_cubic_meter(den, almanac)
     x = unit_scale.convert_to_meters(x, almanac)
     vx = unit_scale.convert_to_meters_per_second(vx, almanac)
     grid_x = unit_scale.convert_to_meters(grid_x, almanac)
-    return kt, wp, wc, v_th, b0, c, dx, dt, ex, ey, ez, by, bz, rho_list, jy, jz, x, vx, grid_x
+    return kt, wp, wc, v_th, b0, c, dx, dt, ex, ey, ez, by, bz, rho_list, jy, jz, den, x, vx, grid_x
 
 
 def save_to_zip(sp_list, almanac, output, grids, ng=user_input.ng, nt_sample=user_input.nt_sample,
                 is_electromagnetic=user_input.is_electromagnetic):
     # UNPACK DATA
     (n_sp, kt, m, wp, wc, v_th, init_d_k, init_v_k, file_name, b0, rho, c, dx, dt, theta, ex, ey, ez, by, bz, rho_list,
-     jy, jz, x, vx, grid_x) = unpack_data(sp_list, almanac, output, grids)
+     jy, jz, den, x, vx, grid_x) = unpack_data(sp_list, almanac, output, grids)
     # CONVERT TO SI UNITS
-    kt, wp, wc, v_th, b0, c, dx, dt, ex, ey, ez, by, bz, rho_list, jy, jz, x, vx, grid_x = convert_units(almanac, kt,
-                                                                                                         wp, wc, v_th,
-                                                                                                         b0, c, dx, dt,
-                                                                                                         ex, ey, ez, by,
-                                                                                                         bz, rho_list,
-                                                                                                         jy, jz, x, vx,
-                                                                                                         grid_x)
+    kt, wp, wc, v_th, b0, c, dx, dt, ex, ey, ez, by, bz, rho_list, jy, jz, den, x, vx, grid_x = convert_units(almanac,
+                                                                                                              kt,
+                                                                                                              wp, wc,
+                                                                                                              v_th,
+                                                                                                              b0, c, dx,
+                                                                                                              dt,
+                                                                                                              ex, ey,
+                                                                                                              ez, by,
+                                                                                                              bz,
+                                                                                                              rho_list,
+                                                                                                              jy, jz,
+                                                                                                              den, x,
+                                                                                                              vx,
+                                                                                                              grid_x)
     # CREATE OUTPUT DIRECTORY IF NOT EXIST
     path = "output/{}.zip".format(file_name)
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
     # SAVE TO ZIP FILE
     zarr.save(path, is_electromagnetic=is_electromagnetic, ng=ng, nt=nt_sample, n_sp=n_sp,
-              kt=kt, m=m, b0=b0, rho=rho, ex=ex, ey=ey, ez=ez, by=by, bz=bz, rho_list=rho_list, jy=jy, jz=jz, x=x,
+              kt=kt, m=m, b0=b0, rho=rho, ex=ex, ey=ey, ez=ez, by=by, bz=bz, rho_list=rho_list, jy=jy, jz=jz, den=den,
+              x=x,
               vx=vx, c=c, dx=dx, dt=dt, wp=wp, wc=wc, theta=theta, v_th=v_th, grid_x=grid_x, init_d_k=init_d_k,
               init_v_k=init_v_k)

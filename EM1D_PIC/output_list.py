@@ -25,6 +25,9 @@ class OutputList:
             elif name in ["jy", "jz"]:
                 setattr(self, name, numpy.zeros(shape=(nt_sample, ng)))
                 self.output_j_list.append(name)
+            elif name == "den":
+                setattr(self, name, numpy.zeros(shape=(nt_sample, n_sp, ng)))
+                self.output_list.append(name)
             else:
                 assert False, "INVALID OUTPUT SELECTION!"
 

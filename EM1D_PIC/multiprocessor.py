@@ -43,6 +43,18 @@ def gather_rho(grids, comm):
     grids.rho = basket
 
 
+def gather_den(grids, comm):
+    """
+    Gather number density from all processors
+    :param grids: grid list
+    :param comm: mpi comm
+    :return:
+    """
+    basket_den = numpy.zeros_like(grids.den)
+    comm.Allreduce(grids.den, basket_den)
+    grids.den = basket_den
+
+
 basket_jy_old = numpy.zeros(user_input.ng)
 basket_jz_old = numpy.zeros(user_input.ng)
 basket_jy = numpy.zeros(user_input.ng)

@@ -79,6 +79,27 @@ def generate_plasma(preset):
                 **qol.no_initial_wave()
             }
         }
+    elif preset == 4:
+        specie_names = {
+            "electron": {
+                "mass": 1,
+                "charge": 1,
+                "number density": 1,
+                "temperature": 4,
+                "drift velocity": 0,
+                "number of simulated particles per grid cell": 3200,
+                **qol.no_initial_wave()
+            },
+            "proton": {
+                "mass": 100,
+                "charge": 1,
+                "number density": 1,
+                "temperature": 1,
+                "drift velocity": 0,
+                "number of simulated particles per grid cell": 3200,
+                **qol.no_initial_wave()
+            }
+        }
     else:
         assert False, "INVALID SCENARIO SELECTION!"
     return specie_names

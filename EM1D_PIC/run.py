@@ -76,7 +76,7 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
         scribe.add_to_log(sp_list, almanac)
 
     # GENERATE GRID POINTS (FROM LIST OF POSITIONS)
-    grids = grid_generator.generate_grids(almanac)
+    grids = grid_generator.generate_grids(almanac, sp_list.n_sp)
 
     # CONSTRUCT A RANDOM NUMBER GENERATOR
     rng = numpy.random.default_rng()

@@ -146,6 +146,16 @@ def convert_to_coulombs_per_cubic_meter(value, almanac):
     return value * scu / slu ** 3
 
 
+def convert_to_particles_per_cubic_meter(value, almanac):
+    """
+    Convert number density from simulation units to particles per cubic meters
+    :param value: number density in simulation units
+    :param almanac: dictionary of useful numbers
+    :return: number density in particles per cubic meter
+    """
+    return value / almanac["slu"] ** 3
+
+
 def convert_to_amperes_per_square_meter(value, almanac):
     """
     Convert current density from simulation units to amperes per square meters

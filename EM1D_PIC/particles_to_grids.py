@@ -14,6 +14,7 @@ def init_weigh_to_grid(species, grids, dx, comm, ng=user_input.ng):
     :param ng: number of grids
     :return: none
     """
+    index = 0
     for specie in species:  # loop for each specie
         # UPDATE NEAREST GRIDS
         specie.update_nearest_grid(dx)
@@ -22,13 +23,15 @@ def init_weigh_to_grid(species, grids, dx, comm, ng=user_input.ng):
         # GET POSITIONS
         x_left_grid = grids.x[nearest_left_grid]  # get the positions of the nearest left grids
         xi = specie.x  # get particle positions
-        coeff = specie.q / dx ** 2  # calculate a coefficient to be used
-        d_rho_right = coeff * (xi - x_left_grid)  # calculate densities to be assigned to the nearest right grids
-        d_rho_left = coeff * dx - d_rho_right  # calculate densities to be assigned to the nearest left grids
+        coeff = 1 / dx ** 2  # calculate a coefficient to be used
+        d_den_right = coeff * (xi - x_left_grid)  # calculate densities to be assigned to the nearest right grids
+        d_den_left = coeff * dx - d_den_right  # calculate densities to be assigned to the nearest left grids
         # ADD DENSITIES TO CORRESPONDING GRIDS
-        grids.rho = grids.rho + numpy.bincount(nearest_left_grid, weights=d_rho_left, minlength=ng) + numpy.bincount(
-            nearest_right_grid, weights=d_rho_right, minlength=ng)
+        grids.den[index] = numpy.bincount(nearest_left_grid, weights=d_den_left, minlength=ng) + numpy.bincount(nearest_right_grid, weights=d_den_right, minlength=ng)
+        grids.rho += specie.q * grids.den[index]
+        index += 1
     multiprocessor.gather_rho(grids, comm)
+    multiprocessor.gather_den(grids, comm)
 
 
 def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, ng=user_input.ng):
@@ -142,6 +145,8 @@ def weigh_to_grid_es(grids, species, dx, comm, ng=user_input.ng):
     """
     # REINITIALIZE RHO
     grids.rho = numpy.zeros(ng)
+    grids.number_density = numpy.zeros_like(grids.number_density)
+    index = 0
     for specie in species:  # loop for each specie
         # GET CURRENT NEAREST GRIDS AND CORRESPONDING GRID POSITIONS
         nearest_left_grid, nearest_right_grid = specie.nearest_grids(ng)
@@ -168,11 +173,16 @@ def weigh_to_grid_es(grids, species, dx, comm, ng=user_input.ng):
 
         # WEIGH RHO
 
-        value = qc / dx / dx
-        grids.rho = weigh_current(value, grids.rho)
+        value = 1 / dx / dx
+        grids.den[index] = weigh_current(value / qc, grids.den[index])
+        grids.rho += qc * grids.den[index]
+        index += 1
 
     # GET ARGUMENTS
     args = (grids, comm)
 
     # GATHER RHO
     multiprocessor.gather_rho(*args)
+
+    # GATHER NUMBER DENSITY
+    multiprocessor.gather_den(*args)

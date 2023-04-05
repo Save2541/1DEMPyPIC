@@ -4,14 +4,15 @@ from . import user_input
 
 
 class GridPointList:
-    def __init__(self, x, almanac, rho=None, jy_old=None, jy=None, jz_old=None, jz=None,
+    def __init__(self, x, almanac, n_sp, rho=None, jy_old=None, jy=None, jz_old=None, jz=None,
                  ex=None, ey=None, ez=None, by=None, bz=None,
                  f_right_old=None, f_left_old=None, f_right=None, f_left=None,
-                 g_right_old=None, g_left_old=None, g_right=None, g_left=None):
+                 g_right_old=None, g_left_old=None, g_right=None, g_left=None, den=None):
         """
         Store grid data
         :param x: position of the grid point
         :param almanac: dictionary of useful quantities
+        :param n_sp: number of species
         :param rho: charge density
         :param jy_old: current density y, previous
         :param jy: current density y, current
@@ -30,6 +31,7 @@ class GridPointList:
         :param g_left_old: left going field quantity G, previous
         :param g_right: right going field quantity G, current
         :param g_left: left going field quantity G, current
+        :param den: number density of each specie
         Definition of field quantities: F_right/left = 1/2*[Ey (+/-) Bz], G_right/left = 1/2*[Ez (-/+) By]
         """
         self.x = x  # [x1, x2, x3, ...]
@@ -51,6 +53,7 @@ class GridPointList:
         self.g_left_old = g_left_old
         self.g_right = g_right
         self.g_left = g_left
+        self.den = den
 
         bz0_contribution = almanac["bz0"] / (2 * almanac["sqrt_mu_over_epsilon"])
         e_ext_contribution = almanac["epsilon"] * almanac["e_ext"] / 2
@@ -72,6 +75,8 @@ class GridPointList:
             self.f_right = numpy.zeros(user_input.ng) + e_ext_contribution + bz0_contribution
         if f_left is None:
             self.f_left = numpy.zeros(user_input.ng) + e_ext_contribution - bz0_contribution
+        if den is None:
+            self.den = numpy.zeros(n_sp, user_input.ng)
 
     def print(self, t, bx0, index=1):
         """
@@ -89,10 +94,11 @@ class GridPointList:
                 self.f_left[index], self.f_right[index], self.g_left[index], self.g_right[index]))
 
 
-def generate_grids(almanac):
+def generate_grids(almanac, n_sp):
     """
     Generate grids
     :param almanac: dictionary of useful numbers
+    :param n_sp: number of species
     :return: grid list
     """
-    return GridPointList(numpy.arange(0, almanac["length"], almanac["dx"]), almanac)
+    return GridPointList(numpy.arange(0, almanac["length"], almanac["dx"]), almanac, n_sp)

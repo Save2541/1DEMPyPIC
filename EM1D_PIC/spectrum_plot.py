@@ -54,7 +54,7 @@ def plot_spectrum(spectrum, axis, title, extent, orders_of_magnitude=None, maxim
     except ValueError:
         maximum = 0
     # PLOT SPECTRUM
-    shw = axis.imshow(spectrum, cmap='plasma',
+    shw = axis.imshow(spectrum, cmap='rainbow',
                       norm=LogNorm(vmin=10 ** (maximum - orders_of_magnitude), vmax=10 ** maximum), origin='lower',
                       extent=extent, aspect='auto', interpolation='none')
     # SET COLOR BAR
