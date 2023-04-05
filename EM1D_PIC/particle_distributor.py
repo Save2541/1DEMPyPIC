@@ -30,7 +30,7 @@ def distribute_positions(sp_list, almanac, rng):
             number = len(x_list[specie_key])  # number of particles
             x_list[specie_key] = numpy.random.choice(xx, number, p=prob_list)
 
-    # DETERMINE IF INITIAL DENSITY WAVES NEED TO BE SET UP
+    # CHECK IF DENSITY WAVES NEED TO BE INITIALIZED
     for sp_key in x_list:
         if sp_list.init_d_wv[sp_key]["number of waves"] != 0 and sp_list.init_d_wv[sp_key]["amplitude"] != 0:
             initialize_density_waves()

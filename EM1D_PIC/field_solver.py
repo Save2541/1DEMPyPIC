@@ -6,7 +6,7 @@ from . import digital_filtering
 
 def solve_field_x(grids, dx, ksqi_over_epsilon, sample_k):
     """
-    Find Ex using Poisson's Equation.
+    Find Ex using Poisson's Equation
     :param grids: list of grid cells
     :param dx: grid size
     :param ksqi_over_epsilon: list of values of k-squared-inverse divided by epsilon naught
@@ -53,7 +53,7 @@ def solve_field(grids, dt, epsilon, sqrt_mu_over_epsilon):
     grids.g_right = numpy.roll(grids.g_right_old - dt_over_4 * grids.jz_old, 1) - dt_over_4 * grids.jz
 
     # SOLVE LEFT-GOING FIELD QUANTITY G = 1/2*(Ez + By)
-    grids.g_left = numpy.roll(grids.g_left_old - dt_over_4 * grids.jz_old, 1) - dt_over_4 * grids.jz
+    grids.g_left = numpy.roll(grids.g_left_old - dt_over_4 * grids.jz_old, -1) - dt_over_4 * grids.jz
 
     # SOLVE Ez
     grids.ez = (grids.g_right + grids.g_left) / epsilon

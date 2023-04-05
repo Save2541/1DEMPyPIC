@@ -4,14 +4,13 @@ from . import user_input
 from . import multiprocessor
 
 
-def init_weigh_to_grid(species, grids, dx, comm, basket, ng=user_input.ng):
+def init_weigh_to_grid(species, grids, dx, comm, ng=user_input.ng):
     """
     Initial weighting of particles to grid values (x to rho, hat function)
     :param species: particle list
     :param grids: grid list
     :param dx: grid size
     :param comm: mpi comm
-    :param basket: reusable array for gathering
     :param ng: number of grids
     :return: none
     """
@@ -29,10 +28,10 @@ def init_weigh_to_grid(species, grids, dx, comm, basket, ng=user_input.ng):
         # ADD DENSITIES TO CORRESPONDING GRIDS
         grids.rho = grids.rho + numpy.bincount(nearest_left_grid, weights=d_rho_left, minlength=ng) + numpy.bincount(
             nearest_right_grid, weights=d_rho_right, minlength=ng)
-    multiprocessor.gather_rho(grids, comm, basket)
+    multiprocessor.gather_rho(grids, comm)
 
 
-def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, basket, ng=user_input.ng):
+def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, ng=user_input.ng):
     """
     Update grid values based on particle values i.e. (x,v) to (rho,j)
     :param grids: list of grid cells
@@ -41,7 +40,6 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, basket, ng=use
     :param sin_theta: sine of theta, where theta is the angle between B_0 and the z axis
     :param cos_theta: cosine of theta, where theta is the angle between B_0 and the z axis
     :param comm: mpi comm
-    :param basket: reusable array for gathering
     :param ng: number of grid cells
     :return: none
     """
@@ -123,10 +121,58 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, basket, ng=use
         grids.rho = weigh_current(value, grids.rho)
 
     # GET ARGUMENTS
-    args = (grids, comm, basket)
+    args = (grids, comm)
 
     # GATHER RHO
     multiprocessor.gather_rho(*args)
 
     # GATHER J
     multiprocessor.gather_j(*args)
+
+
+def weigh_to_grid_es(grids, species, dx, comm, ng=user_input.ng):
+    """
+    Update rho based on x (for ES code)
+    :param grids: list of grid cells
+    :param species: list of particles divided into species
+    :param dx: grid size
+    :param comm: mpi comm
+    :param ng: number of grid cells
+    :return: none
+    """
+    # REINITIALIZE RHO
+    grids.rho = numpy.zeros(ng)
+    for specie in species:  # loop for each specie
+        # GET CURRENT NEAREST GRIDS AND CORRESPONDING GRID POSITIONS
+        nearest_left_grid, nearest_right_grid = specie.nearest_grids(ng)
+        x_left_grid = grids.x[nearest_left_grid]
+        # GET PARTICLE CHARGE
+        qc = specie.q
+        # GET PARTICLE POSITIONS
+        xi = specie.x
+
+        # WEIGHING FUNCTIONS
+
+        def weigh_current(values, destination):
+            """
+            Weigh a value to grids after particle movement
+            :param values: value list to be weighted
+            :param destination: grid quantity to be updated
+            :return: updated grid quantity
+            """
+            d_right = values * (xi - x_left_grid)
+            d_left = values * dx - d_right
+            weighted = destination + numpy.bincount(nearest_left_grid, weights=d_left, minlength=ng) + numpy.bincount(
+                nearest_right_grid, weights=d_right, minlength=ng)
+            return weighted
+
+        # WEIGH RHO
+
+        value = qc / dx / dx
+        grids.rho = weigh_current(value, grids.rho)
+
+    # GET ARGUMENTS
+    args = (grids, comm)
+
+    # GATHER RHO
+    multiprocessor.gather_rho(*args)
