@@ -38,10 +38,21 @@ def main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_part
         args_es = args + (bz0, e_ext)
         particle_mover.move_particles_es(*args_es)
 
+    def update_to_weigh_particles_es(*args):
+        """
+        Change function to ES counterpart when not running EM code
+        :param args: arguments originally meant for EM code
+        :return: none
+        """
+        args_es = args[:3] + args[5:]
+        particles_to_grids.weigh_to_grid_es(*args_es)
+
     if is_electromagnetic:
         move_particles = particle_mover.move_particles_em
+        weigh_particles = particles_to_grids.weigh_to_grid
     else:
         move_particles = update_to_move_particles_es
+        weigh_particles = update_to_weigh_particles_es
 
     def main_loop(time_step):
         """
@@ -52,7 +63,7 @@ def main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_part
 
         # MAIN PROGRAM
         move_particles(species, grids, dx, dt, length, bx0, sin_theta, cos_theta)  # move particles
-        particles_to_grids.weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm)  # weight to grid
+        weigh_particles(grids, species, dx, sin_theta, cos_theta, comm)  # weight to grid
         field_solver.solve_field_x(grids, dx, ksqi_over_epsilon, sample_k)  # solve Ex from rho (Poisson's eqn)
         if is_electromagnetic:
             field_solver.solve_field(grids, dt, epsilon,

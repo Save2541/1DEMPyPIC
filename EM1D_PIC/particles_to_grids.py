@@ -128,3 +128,51 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, ng=user_input.
 
     # GATHER J
     multiprocessor.gather_j(*args)
+
+
+def weigh_to_grid_es(grids, species, dx, comm, ng=user_input.ng):
+    """
+    Update rho based on x (for ES code)
+    :param grids: list of grid cells
+    :param species: list of particles divided into species
+    :param dx: grid size
+    :param comm: mpi comm
+    :param ng: number of grid cells
+    :return: none
+    """
+    # REINITIALIZE RHO
+    grids.rho = numpy.zeros(ng)
+    for specie in species:  # loop for each specie
+        # GET CURRENT NEAREST GRIDS AND CORRESPONDING GRID POSITIONS
+        nearest_left_grid, nearest_right_grid = specie.nearest_grids(ng)
+        x_left_grid = grids.x[nearest_left_grid]
+        # GET PARTICLE CHARGE
+        qc = specie.q
+        # GET PARTICLE POSITIONS
+        xi = specie.x
+
+        # WEIGHING FUNCTIONS
+
+        def weigh_current(values, destination):
+            """
+            Weigh a value to grids after particle movement
+            :param values: value list to be weighted
+            :param destination: grid quantity to be updated
+            :return: updated grid quantity
+            """
+            d_right = values * (xi - x_left_grid)
+            d_left = values * dx - d_right
+            weighted = destination + numpy.bincount(nearest_left_grid, weights=d_left, minlength=ng) + numpy.bincount(
+                nearest_right_grid, weights=d_right, minlength=ng)
+            return weighted
+
+        # WEIGH RHO
+
+        value = qc / dx / dx
+        grids.rho = weigh_current(value, grids.rho)
+
+    # GET ARGUMENTS
+    args = (grids, comm)
+
+    # GATHER RHO
+    multiprocessor.gather_rho(*args)
