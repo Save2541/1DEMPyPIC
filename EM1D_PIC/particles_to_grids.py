@@ -145,7 +145,7 @@ def weigh_to_grid_es(grids, species, dx, comm, ng=user_input.ng):
     """
     # REINITIALIZE RHO
     grids.rho = numpy.zeros(ng)
-    grids.number_density = numpy.zeros_like(grids.number_density)
+    grids.den = numpy.zeros_like(grids.den)
     index = 0
     for specie in species:  # loop for each specie
         # GET CURRENT NEAREST GRIDS AND CORRESPONDING GRID POSITIONS
@@ -174,7 +174,7 @@ def weigh_to_grid_es(grids, species, dx, comm, ng=user_input.ng):
         # WEIGH RHO
 
         value = 1 / dx / dx
-        grids.den[index] = weigh_current(value / qc, grids.den[index])
+        grids.den[index] = weigh_current(value, grids.den[index])
         grids.rho += qc * grids.den[index]
         index += 1
 

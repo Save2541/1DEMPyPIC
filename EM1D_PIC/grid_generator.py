@@ -76,7 +76,7 @@ class GridPointList:
         if f_left is None:
             self.f_left = numpy.zeros(user_input.ng) + e_ext_contribution - bz0_contribution
         if den is None:
-            self.den = numpy.zeros(n_sp, user_input.ng)
+            self.den = numpy.zeros(shape=(n_sp, user_input.ng))
 
     def print(self, t, bx0, index=1):
         """
