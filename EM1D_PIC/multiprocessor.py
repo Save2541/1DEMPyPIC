@@ -21,9 +21,7 @@ def get_minimum(value, comm):
     """
     Get the minimum value across processors
     """
-    minimum = 0
-    comm.Allreduce(value, minimum, min)
-    return minimum
+    return comm.allreduce(value, MPI.MIN)
 
 
 def gather(x, comm):
@@ -37,9 +35,7 @@ def get_maximum(value, comm):
     """
     Get the maximum value across processors
     """
-    maximum = 0
-    comm.Allreduce(value, maximum, max)
-    return maximum
+    return comm.allreduce(value, MPI.MAX)
 
 
 def get_ranked_np(np, size, rank):
