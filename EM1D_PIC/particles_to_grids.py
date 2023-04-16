@@ -60,8 +60,11 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, ng=user_input.
     grids.jz_old = numpy.zeros(ng)
     grids.jz = numpy.zeros(ng)
 
-    # REINITIALIZE RHO
+    # REINITIALIZE RHO AND DEN
     grids.rho = numpy.zeros(ng)
+    grids.den = numpy.zeros_like(grids.den)
+
+    index = 0
 
     for specie in species:  # loop for each specie
         # GET PREVIOUS NEAREST GRIDS AND GRID POSITIONS
@@ -120,14 +123,19 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, ng=user_input.
 
         # WEIGH RHO
 
-        value = qc / dx / dx
-        grids.rho = weigh_current(value, grids.rho)
+        value = 1 / dx / dx
+        grids.den[index] = weigh_current(value, grids.den[index])
+        grids.rho += qc * grids.den[index]
+        index += 1
 
     # GET ARGUMENTS
     args = (grids, comm)
 
     # GATHER RHO
     multiprocessor.gather_rho(*args)
+
+    # GATHER NUMBER DENSITY
+    multiprocessor.gather_den(*args)
 
     # GATHER J
     multiprocessor.gather_j(*args)
