@@ -72,13 +72,13 @@ def main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_part
         # STORE DATA PERIODICALLY
         index = time_step * nt_sample / nt
         if index.is_integer():
-            # STORE DATA FOR PHASE SPACE PLOT (ELECTRONS ONLY)
             index = int(index)
             if rank == 0:
                 grids.print(time_step, bx0)
-                output.update_xv_output(index, species, plot_particles_id, sin_theta, cos_theta)
                 # STORE FIELD DATA FOR PLOTTING
                 output.update_output(index, grids)
+            # STORE DATA FOR PHASE SPACE PLOT
+            output.update_xv_output(index, species, plot_particles_id, sin_theta, cos_theta)
             if index == nt_sample - 1:
                 return True
 
