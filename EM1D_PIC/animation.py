@@ -140,6 +140,10 @@ def set_up_add_plots(loader, add_plots, add_plot_keys, axs, length, grid_x, time
                 array = loader[key]
                 title = key.capitalize()
                 units = "A/m^2"
+            elif key[:3] == "den":
+                array = loader["den"][:, int(key[3]), :]
+                title = key.capitalize()
+                units = "1/m^3"
             else:
                 assert False, "Invalid plot key: {}".format(key)
             axis = axs[i, j]
