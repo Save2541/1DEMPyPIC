@@ -4,13 +4,12 @@ from . import user_input
 
 
 class OutputList:
-    def __init__(self, output_name_list, n_sp, n_sample=user_input.n_sample, nt_sample=user_input.nt_sample,
-                 ng=user_input.ng):
+    def __init__(self, output_name_list, n_sp, n_sample, nt_sample=user_input.nt_sample, ng=user_input.ng):
         """
         Generate lists of outputs
         :param output_name_list: names of requested output
         :param n_sp: number of species
-        :param n_sample: number of particles to plot in phase space plot
+        :param n_sample: number of particles to plot in phase space plot (per processor)
         :param nt_sample: number of time steps to record
         :param ng: number of grid cells
         """

@@ -37,7 +37,7 @@ def get_user_input(preset, n_sample, output_names):
     return preset, n_sample, output_names
 
 
-def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=user_input.output_names):
+def run(preset=None, n_sample=None, output_names=None):
     """
     Run the program
     :param preset: plasma preset selected by the user
@@ -52,6 +52,9 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     # GET USER INPUT
     preset, n_sample, output_names = get_user_input(preset, n_sample, output_names)
 
+    # CONVERT TO n_sample PER PROCESSOR
+    n_sample = n_sample // size
+
     # GENERATE PLASMA
     specie_names = plasma_cauldron.generate_plasma(preset)
 
@@ -62,10 +65,10 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     almanac = input_compiler.compile_input(sp_list, specie_names, size, rank)
 
     # PERFORM SANITY CHECK (PROGRAM WILL BREAK IF USER INPUT IS UNREASONABLE)
-    qol.sanity_check(sp_list, almanac)
+    if rank == 0:
+        qol.sanity_check(sp_list, almanac, n_sample)
 
     # CREATE LOG (TEXT FILE)
-    if rank == 0:
         scribe.create_log(sp_list, almanac)
 
     # SCALE QUANTITIES TO SIMULATION UNITS
@@ -103,15 +106,19 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     ksqi_over_epsilon = qol.get_ksqi_over_epsilon(almanac)
 
     #  INDICES OF PARTICLES TO BE PLOTTED IN THE ANIMATION
-    if rank == 0:
-        plot_particles_id = rng.choice(numpy.amin(sp_list.np), n_sample)
+    plot_particles_id = rng.choice(numpy.amin(sp_list.np), n_sample)
 
-        # INITIALIZE ARRAYS TO STORE OUTPUT DATA
-        output = output_list.OutputList(output_names, sp_list.n_sp)
+    # INITIALIZE ARRAYS TO STORE OUTPUT DATA
+    if rank == 0:
+        output = output_list.OutputList(output_names, sp_list.n_sp, n_sample)
 
     else:
-        plot_particles_id = []
-        output = output_list.OutputList([], sp_list.n_sp)
+        new_output_names = []
+        if "x" in output_names:
+            new_output_names.append("x")
+        if "v" in output_names:
+            new_output_names.append("v")
+        output = output_list.OutputList(new_output_names, sp_list.n_sp, n_sample)
 
     # GET STARTING TIME
     start_time = time.monotonic()
@@ -136,12 +143,23 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
             with open('outstats.txt', 'w+') as f:
                 f.write(s.getvalue())
 
+    # GATHER XV OUTPUT
+    if rank == 0:
+        print("GATHERING PARTICLES...")
+    x_data, v_data = multiprocessor.gather_xv(output, comm, size, rank)
+
     if rank == 0:
         # OUTPUT RUNTIME AND FINISH LOG
         file_name = almanac["file name"]
         scribe.finish_log(start_time, file_name)
 
+        if hasattr(output, "x"):
+            output.x = x_data
+        if hasattr(output, "v"):
+            output.v = v_data
+
         # SAVE DATA TO ZIP FILE
+        print("SAVING DATA...")
         zipper.save_to_zip(sp_list, almanac, output, grids)
 
 

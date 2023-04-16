@@ -2,6 +2,7 @@ import numpy
 from mpi4py import MPI
 
 from . import user_input
+from . import qol
 
 
 def setup_mpi():
@@ -14,6 +15,31 @@ def setup_mpi():
     size = comm.Get_size()
     rank = comm.Get_rank()
     return comm, size, rank
+
+
+def get_minimum(value, comm):
+    """
+    Get the minimum value across processors
+    """
+    minimum = 0
+    comm.Allreduce(value, minimum, min)
+    return minimum
+
+
+def gather(x, comm):
+    """
+    Gather x to root=0 processor
+    """
+    return comm.gather(x, root=0)
+
+
+def get_maximum(value, comm):
+    """
+    Get the maximum value across processors
+    """
+    maximum = 0
+    comm.Allreduce(value, maximum, max)
+    return maximum
 
 
 def get_ranked_np(np, size, rank):
@@ -43,6 +69,9 @@ def gather_rho(grids, comm):
     grids.rho = basket
 
 
+basket_den = numpy.zeros((qol.get_n_sp(), user_input.ng))
+
+
 def gather_den(grids, comm):
     """
     Gather number density from all processors
@@ -50,7 +79,6 @@ def gather_den(grids, comm):
     :param comm: mpi comm
     :return:
     """
-    basket_den = numpy.zeros_like(grids.den)
     comm.Allreduce(grids.den, basket_den)
     grids.den = basket_den
 
@@ -68,15 +96,60 @@ def gather_j(grids, comm):
     :param comm: mpi comm
     :return:
     """
-    # basket = numpy.zeros_like(basket)
     comm.Allreduce(grids.jy_old, basket_jy_old)
-    grids.jy_old = basket_jy_old - numpy.mean(basket_jy_old)
-    # basket = numpy.zeros_like(basket)
+    grids.jy_old = basket_jy_old
+    # grids.jy_old = basket_jy_old - numpy.mean(basket_jy_old)
     comm.Allreduce(grids.jy, basket_jy)
-    grids.jy = basket_jy - numpy.mean(basket_jy)
-    # basket = numpy.zeros_like(basket)
+    grids.jy = basket_jy
+    # grids.jy = basket_jy - numpy.mean(basket_jy)
     comm.Allreduce(grids.jz_old, basket_jz_old)
-    grids.jz_old = basket_jz_old - numpy.mean(basket_jz_old)
-    # basket = numpy.zeros_like(basket)
+    grids.jz_old = basket_jz_old
+    # grids.jz_old = basket_jz_old - numpy.mean(basket_jz_old)
     comm.Allreduce(grids.jz, basket_jz)
-    grids.jz = basket_jz - numpy.mean(basket_jz)
+    grids.jz = basket_jz
+    # grids.jz = basket_jz - numpy.mean(basket_jz)
+
+
+def gather_xv(output, comm, size, rank):
+    """
+    Gather x and v to rank=0 processor
+    """
+    basket_x = None
+    basket_v = None
+    x_data = None
+    v_data = None
+    if hasattr(output, "x") and hasattr(output, "v"):
+        output_shape = output.x.shape
+        data_shape = output_shape * numpy.array([1, 1, size])
+        if rank == 0:
+            basket_x = numpy.empty((size, *output_shape))
+            basket_v = numpy.empty((size, *output_shape))
+            x_data = numpy.zeros(data_shape)
+            v_data = numpy.zeros(data_shape)
+        comm.Gather(output.x, basket_x, root=0)
+        comm.Gather(output.v, basket_v, root=0)
+        if rank == 0:
+            x_data = numpy.concatenate(basket_x, axis=-1)
+            v_data = numpy.concatenate(basket_v, axis=-1)
+
+    elif hasattr(output, "x"):
+        output_shape = output.x.shape
+        data_shape = output_shape * numpy.array([1, 1, size])
+        if rank == 0:
+            basket_x = numpy.empty((size, *output_shape))
+            x_data = numpy.zeros(data_shape)
+        comm.Gather(output.x, basket_x, root=0)
+        if rank == 0:
+            x_data = numpy.concatenate(basket_x, axis=-1)
+
+    elif hasattr(output, "v"):
+        output_shape = output.v.shape
+        data_shape = output_shape * numpy.array([1, 1, size])
+        if rank == 0:
+            basket_v = numpy.empty((size, *output_shape))
+            v_data = numpy.zeros(data_shape)
+        comm.Gather(output.v, basket_v, root=0)
+        if rank == 0:
+            v_data = numpy.concatenate(basket_v, axis=-1)
+
+    return x_data, v_data
