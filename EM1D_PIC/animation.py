@@ -8,23 +8,30 @@ from matplotlib.animation import FuncAnimation, FFMpegWriter
 
 from . import plot_config
 from . import qol
+from . import multiprocessor
 
 
-def y_axis_limit(value_list):
+def y_axis_limit(value_list, comm=None):
     """
     Set y-axis limit for plots
     :param value_list: values to be plotted
+    :param comm: MPI comm
     :return: y-axis limit
     """
-    maximum = numpy.amax(value_list)
-    minimum = numpy.amin(value_list)
+    if comm is None:
+        maximum = numpy.amax(value_list)
+        minimum = numpy.amin(value_list)
+    else:
+        maximum = multiprocessor.get_maximum(numpy.amax(value_list), comm)
+        minimum = multiprocessor.get_minimum(numpy.amin(value_list), comm)
     if minimum != maximum:
         return [minimum, maximum]
     else:
         return [-1, 1]
 
 
-def set_default_parameters(specie, anim, time_step, add_plots, add_plot_keys, dot_size, plot_species, plot_colors, fps, frame_interval):
+def set_default_parameters(specie, anim, time_step, add_plots, add_plot_keys, dot_size, plot_species, plot_colors, fps,
+                           frame_interval):
     """
     Set default parameters for the function plot_non_fourier
     :param specie: specie to focus on in the phase space animation
@@ -78,19 +85,21 @@ def sanity_check(add_plot_keys, add_plots, plot_species, plot_colors, n_sp):
     :return: none
     """
     assert numpy.array(add_plot_keys).shape == add_plots, "The shape of add_plot_keys is not equal to add_plots!"
-    assert len(plot_colors) == len(plot_species), "The length of plot_colors is not equal to the length of plot_species!"
+    assert len(plot_colors) == len(
+        plot_species), "The length of plot_colors is not equal to the length of plot_species!"
     assert len(plot_species) <= n_sp, "The length of plot_species is greater than the total number of species!"
 
 
-def set_variables(x, ng, dx):
+def set_variables(x, ng, dx, size):
     """
     Set some variables
     :param x: grid positions
     :param ng: number of grids
     :param dx: grid size
+    :param size: number of processors
     :return: number of species, number of sample particles per specie, spatial length of the simulation
     """
-    return x.shape[0], x.shape[2], ng * dx
+    return x.shape[0], x.shape[2] // size, ng * dx
 
 
 def merge_bottom_subplots(fig, axs):
@@ -154,7 +163,8 @@ def set_up_add_plots(loader, add_plots, add_plot_keys, axs, length, grid_x, time
     return line_list, array_list
 
 
-def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, plot_colors, length, specie, line_list):
+def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, plot_colors, length, specie, line_list,
+                            comm, rank):
     """
     Set up phase space plot in the bottom axis
     :param x: particle positions
@@ -167,6 +177,8 @@ def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, 
     :param length: spatial length of the simulation
     :param specie: specie to focus on in the phase space animation
     :param line_list: list of lines to be animated
+    :param comm: MPI comm
+    :param rank: processor rank
     :return: none
     """
     init_x = x[plot_species, 0].flatten()
@@ -174,15 +186,20 @@ def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, 
     bottom_line = ax_bottom.scatter(init_x, init_vx, s=dot_size)  # draw an initial scatter plot
     color_list = numpy.concatenate([([i] * n_sample) for i in plot_colors], axis=0)
     bottom_line.set_facecolors(color_list)
-    line_list.append(bottom_line)
+    bottom_line_list = multiprocessor.gather(bottom_line, comm)
+    if rank == 0:
+        line_list.append(*bottom_line_list)
+    else:
+        line_list.append(bottom_line)
     ax_bottom.set_title("Phase space")
     ax_bottom.set_xlabel("x (m)")
     ax_bottom.set_ylabel("vx (m/s)")
     ax_bottom.set_xlim([0, length])
-    ax_bottom.set_ylim(y_axis_limit(vx[specie]))
+    ax_bottom.set_ylim(y_axis_limit(vx[specie], comm))
 
 
-def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, fps, nt, file_name, plot_species):
+def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, fps, nt, file_name, plot_species, comm,
+                            rank):
     """
     Animate plots and save the animation to mp4 file
     :param fig: canvas
@@ -195,6 +212,8 @@ def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, f
     :param nt: number of time steps
     :param file_name: name of mp4 file
     :param plot_species: species to be plotted in phase space
+    :param comm: MPI comm
+    :param rank: processor rank
     :return: none
     """
 
@@ -205,22 +224,28 @@ def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, f
         :return: list of updated lines
         """
         frame_number = frame_number * frame_interval
-        print("Animation Progress: {}/{}.".format(frame_number, nt))
-        for index in range(len(line_list) - 1):
-            line_list[index].set_ydata(array_list[index][frame_number])
         new_x = x[plot_species, frame_number].flatten()
         new_vx = vx[plot_species, frame_number].flatten()
-        line_list[-1].set_offsets(numpy.column_stack((new_x, new_vx)))
+        n_add_plots = len(array_list)
+        phase_space_line = line_list[n_add_plots]
+        phase_space_line.set_offsets(numpy.column_stack((new_x, new_vx)))
+        phase_space_line_list = multiprocessor.gather(phase_space_line, comm)
+        if rank == 0:
+            line_list[n_add_plots:] = phase_space_line_list
+            print("Animation Progress: {}/{}.".format(frame_number, nt))
+            for index in range(n_add_plots):
+                line_list[index].set_ydata(array_list[index][frame_number])
         return line_list
 
     # CREATE ANIMATION
     animation = FuncAnimation(fig, animate, save_count=int(nt // frame_interval))
 
     # SAVE ANIMATION
-    f = "anim/{}.mp4".format(file_name)
-    os.makedirs(os.path.dirname(f), exist_ok=True)
-    writer_video = FFMpegWriter(fps=fps)
-    animation.save(f, writer=writer_video)
+    if rank == 0:
+        f = "anim/{}.mp4".format(file_name)
+        os.makedirs(os.path.dirname(f), exist_ok=True)
+        writer_video = FFMpegWriter(fps=fps)
+        animation.save(f, writer=writer_video)
     plt.close()
 
 
@@ -235,11 +260,15 @@ def save_non_fourier_plot(file_name):
     plt.savefig(path)  # save figure
 
 
-def plot_non_fourier(file_name, specie=None, anim=True, time_step=None, add_plots=None, add_plot_keys=None,
+def plot_non_fourier(file_name, size, comm, rank, specie=None, anim=True, time_step=None, add_plots=None,
+                     add_plot_keys=None,
                      dot_size=None, plot_species=None, plot_colors=None, fps=None, frame_interval=None):
     """
     PLOT GRID QUANTITIES WITHOUT FOURIER TRANSFORMING
     :param file_name: name of the file which stores the arrays
+    :param size: number of processors
+    :param comm: MPI comm
+    :param rank: processor rank
     :param specie: specie to focus on in the phase space animation
     :param anim: make an animation or not
     :param time_step: time step to be plotted, only needed if not animated
@@ -253,7 +282,8 @@ def plot_non_fourier(file_name, specie=None, anim=True, time_step=None, add_plot
     :return:
     """
     # SET DEFAULT PARAMETERS
-    specie, time_step, add_plots, add_plot_keys, dot_size, plot_species, plot_colors, fps, frame_interval = set_default_parameters(specie, anim, time_step, add_plots, add_plot_keys, dot_size, plot_species, plot_colors, fps, frame_interval)
+    specie, time_step, add_plots, add_plot_keys, dot_size, plot_species, plot_colors, fps, frame_interval = set_default_parameters(
+        specie, anim, time_step, add_plots, add_plot_keys, dot_size, plot_species, plot_colors, fps, frame_interval)
 
     # SET VIDEO WRITER PATH
     rcParams['animation.ffmpeg_path'] = r'ffmpeg\\bin\\ffmpeg.exe'
@@ -265,7 +295,12 @@ def plot_non_fourier(file_name, specie=None, anim=True, time_step=None, add_plot
     (grid_x, x, vx, ng, nt, dx) = qol.read_almanac(loader, "grid_x", "x", "vx", "ng", "nt", "dx")
 
     # DEFINE SOME VARIABLES
-    n_sp, n_sample, length = set_variables(x, ng, dx)
+    n_sp, n_sample, length = set_variables(x, ng, dx, size)
+
+    # SCATTER X AND VX TO PROCESSORS
+    array_slice = numpy.s_[:, :, rank * n_sample: (rank + 1) * n_sample]
+    x = x[array_slice]
+    vx = vx[array_slice]
 
     # CHECK IF INPUT IS REASONABLE
     sanity_check(add_plot_keys, add_plots, plot_species, plot_colors, n_sp)
@@ -280,14 +315,16 @@ def plot_non_fourier(file_name, specie=None, anim=True, time_step=None, add_plot
     line_list, array_list = set_up_add_plots(loader, add_plots, add_plot_keys, axs, length, grid_x, time_step)
 
     # SET PHASE SPACE PLOT
-    set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, plot_colors, length, specie, line_list)
+    set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, plot_colors, length, specie, line_list,
+                            comm, rank)
 
     # PREVENT PLOT OVERLAPS
     plt.tight_layout()
 
     if anim:
         # ANIMATE AND SAVE TO MP4
-        animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, fps, nt, file_name, plot_species)
+        animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, fps, nt, file_name, plot_species,
+                                comm, rank)
 
     else:
         # SAVE PLOT AS IS (NO ANIMATION)
