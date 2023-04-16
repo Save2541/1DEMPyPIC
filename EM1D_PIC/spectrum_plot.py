@@ -104,6 +104,7 @@ def draw_on_axes(plot_list, axs, loader, k_array, extent):
             # PLOT SPECTRUM
             spectrum_key = plot_list.keys[i][j]
             spectrum = fourier_transformer.fourier_transform_2d(spectrum_key, loader, k_array)
+            spectrum[:, 0] = 0  # Set k = 0 column to zero
             plot_spectrum(spectrum, axis, plot_list.title(i, j), extent)
             # PLOT LINE
             line_key = plot_list.overlays[i][j]
