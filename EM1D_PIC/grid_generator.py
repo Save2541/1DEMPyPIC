@@ -5,9 +5,7 @@ from . import user_input
 
 class GridPointList:
     def __init__(self, x, almanac, n_sp, rho=None, jy_old=None, jy=None, jz_old=None, jz=None,
-                 ex=None, ey=None, ez=None, by=None, bz=None,
-                 f_right_old=None, f_left_old=None, f_right=None, f_left=None,
-                 g_right_old=None, g_left_old=None, g_right=None, g_left=None, den=None):
+                 ex=None, ey=None, ez=None, by=None, bz=None, f_right=None, f_left=None, g_right=None, g_left=None, den=None):
         """
         Store grid data
         :param x: position of the grid point
@@ -23,12 +21,8 @@ class GridPointList:
         :param ez: electric field z
         :param by: magnetic field y
         :param bz: magnetic field z
-        :param f_right_old: right going field quantity F, previous
-        :param f_left_old: left going field quantity F, previous
         :param f_right: right going field quantity F, current
         :param f_left: left going field quantity F, current
-        :param g_right_old: right going field quantity G, previous
-        :param g_left_old: left going field quantity G, previous
         :param g_right: right going field quantity G, current
         :param g_left: left going field quantity G, current
         :param den: number density of each specie
@@ -45,20 +39,15 @@ class GridPointList:
         self.ez = ez
         self.by = by
         self.bz = bz
-        self.f_right_old = f_right_old
-        self.f_left_old = f_left_old
         self.f_right = f_right
         self.f_left = f_left
-        self.g_right_old = g_right_old
-        self.g_left_old = g_left_old
         self.g_right = g_right
         self.g_left = g_left
         self.den = den
 
         bz0_contribution = almanac["bz0"] / (2 * almanac["sqrt_mu_over_epsilon"])
         e_ext_contribution = almanac["epsilon"] * almanac["e_ext"] / 2
-        val_dict = dict(rho=rho, jy_old=jy_old, jy=jy, jz_old=jz_old, jz=jz, ex=ex, ez=ez, by=by,
-                        g_right_old=g_right_old, g_left_old=g_left_old, g_right=g_right, g_left=g_left)
+        val_dict = dict(rho=rho, jy_old=jy_old, jy=jy, jz_old=jz_old, jz=jz, ex=ex, ez=ez, by=by, g_right=g_right, g_left=g_left)
         # SET INITIAL VALUES
         for key in val_dict.keys():
             if val_dict[key] is None:
@@ -67,10 +56,6 @@ class GridPointList:
             self.ey = numpy.zeros(user_input.ng) + almanac["e_ext"]
         if bz is None:
             self.bz = numpy.zeros(user_input.ng) + almanac["bz0"]
-        if f_right_old is None:
-            self.f_right_old = numpy.zeros(user_input.ng) + e_ext_contribution + bz0_contribution
-        if f_left_old is None:
-            self.f_left_old = numpy.zeros(user_input.ng) + e_ext_contribution - bz0_contribution
         if f_right is None:
             self.f_right = numpy.zeros(user_input.ng) + e_ext_contribution + bz0_contribution
         if f_left is None:

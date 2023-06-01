@@ -48,12 +48,6 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, ng=user_input.
     """
     """UPDATE GRID VALUES BASED ON PARTICLE VALUES"""
 
-    # STORE OLD FIELD QUANTITIES
-    grids.f_right_old = grids.f_right
-    grids.f_left_old = grids.f_left
-    grids.g_right_old = grids.g_right
-    grids.g_left_old = grids.g_left
-
     # REINITIALIZE CURRENT DENSITIES
     grids.jy_old = numpy.zeros(ng)
     grids.jy = numpy.zeros(ng)

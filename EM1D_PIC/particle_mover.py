@@ -212,7 +212,7 @@ def move_particles_init(species, grids, dx, dt, length, bx0, sin_theta, cos_thet
         solve_equations_of_motion(specie, dx, dt, length, ex, ey, ez, bx0, bz, sin_theta, cos_theta)
 
 
-def move_particles_em(species, grids, dx, dt, length, bx0, sin_theta, cos_theta, pool=None):
+def move_particles_em(species, grids, dx, dt, length, bx0, sin_theta, cos_theta):
     """
     Particle mover for electromagnetic code
     :param species: list of particles divided into species
@@ -223,7 +223,6 @@ def move_particles_em(species, grids, dx, dt, length, bx0, sin_theta, cos_theta,
     :param bx0: magnetic field in the x-direction (always constant)
     :param sin_theta: sine of theta, where theta is the angle between B_0 and the z axis
     :param cos_theta: cosine of theta, where theta is the angle between B_0 and the z axis
-    :param pool: multiprocessing pool
     :return: none
     """
     for specie in species:  # loop for each specie
@@ -233,26 +232,13 @@ def move_particles_em(species, grids, dx, dt, length, bx0, sin_theta, cos_theta,
         # GET ARGUMENTS FOR THE INTERPOLATION FUNCTION
         args_interpolate = get_args_interpolate(specie, grids, dx)
 
-        if pool is None:
-            # INTERPOLATE FIELD QUANTITIES FROM GRIDS TO PARTICLES
-            ex = interpolate(grids.ex, *args_interpolate)
+        # INTERPOLATE FIELD QUANTITIES FROM GRIDS TO PARTICLES
+        ex = interpolate(grids.ex, *args_interpolate)
 
-            # INTERPOLATE ELECTROMAGNETIC FIELDS
-            bz = interpolate(grids.bz, *args_interpolate)
-            ey = interpolate(grids.ey, *args_interpolate)
-            ez = interpolate(grids.ez, *args_interpolate)
-        else:
-            # set up pool workers
-            ex = pool.apply_async(interpolate, args=(grids.ex, *args_interpolate))
-            bz = pool.apply_async(interpolate, args=(grids.bz, *args_interpolate))
-            ey = pool.apply_async(interpolate, args=(grids.ey, *args_interpolate))
-            ez = pool.apply_async(interpolate, args=(grids.ez, *args_interpolate))
-
-            # get results from pool workers
-            ex = ex.get()
-            bz = bz.get()
-            ey = ey.get()
-            ez = ez.get()
+        # INTERPOLATE ELECTROMAGNETIC FIELDS
+        bz = interpolate(grids.bz, *args_interpolate)
+        ey = interpolate(grids.ey, *args_interpolate)
+        ez = interpolate(grids.ez, *args_interpolate)
 
         # SOLVE EQUATIONS OF MOTION AND MOVE PARTICLES
         solve_equations_of_motion(specie, dx, dt, length, ex, ey, ez, bx0, bz, sin_theta, cos_theta)
