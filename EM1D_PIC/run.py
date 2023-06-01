@@ -45,7 +45,6 @@ def run(preset=None, n_sample=None, output_names=None):
     :param output_names: list of requested outputs
     :return: none
     """
-
     # SETUP MULTIPROCESSING
     comm, size, rank = multiprocessor.setup_mpi()
 
@@ -69,6 +68,7 @@ def run(preset=None, n_sample=None, output_names=None):
         qol.sanity_check(sp_list, almanac, n_sample)
 
     # CREATE LOG (TEXT FILE)
+        print("Logging...")
         scribe.create_log(sp_list, almanac)
 
     # SCALE QUANTITIES TO SIMULATION UNITS

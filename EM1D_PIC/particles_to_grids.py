@@ -27,7 +27,8 @@ def init_weigh_to_grid(species, grids, dx, comm, ng=user_input.ng):
         d_den_right = coeff * (xi - x_left_grid)  # calculate densities to be assigned to the nearest right grids
         d_den_left = coeff * dx - d_den_right  # calculate densities to be assigned to the nearest left grids
         # ADD DENSITIES TO CORRESPONDING GRIDS
-        grids.den[index] = numpy.bincount(nearest_left_grid, weights=d_den_left, minlength=ng) + numpy.bincount(nearest_right_grid, weights=d_den_right, minlength=ng)
+        grids.den[index] = numpy.bincount(nearest_left_grid, weights=d_den_left, minlength=ng) + numpy.bincount(
+            nearest_right_grid, weights=d_den_right, minlength=ng)
         grids.rho += specie.q * grids.den[index]
         index += 1
     multiprocessor.gather_rho(grids, comm)
@@ -48,17 +49,11 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, ng=user_input.
     """
     """UPDATE GRID VALUES BASED ON PARTICLE VALUES"""
 
-    # STORE OLD FIELD QUANTITIES
-    grids.f_right_old = grids.f_right
-    grids.f_left_old = grids.f_left
-    grids.g_right_old = grids.g_right
-    grids.g_left_old = grids.g_left
-
     # REINITIALIZE CURRENT DENSITIES
-    grids.jy_old = numpy.zeros(ng)
-    grids.jy = numpy.zeros(ng)
-    grids.jz_old = numpy.zeros(ng)
-    grids.jz = numpy.zeros(ng)
+    jy_old = numpy.zeros(ng)
+    jy_current = numpy.zeros(ng)
+    jz_old = numpy.zeros(ng)
+    jz_current = numpy.zeros(ng)
 
     # REINITIALIZE RHO AND DEN
     grids.rho = numpy.zeros(ng)
@@ -111,22 +106,29 @@ def weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm, ng=user_input.
 
         # WEIGH Jy
 
-        value = qc / dx * specie.vy / dx
-        grids.jy_old = weigh_old(value, grids.jy_old)
-        grids.jy = weigh_current(value, grids.jy)
+        value = 0.5 * qc * specie.vy / dx ** 2
+        jy_old = weigh_old(value, jy_old)
+        jy_current = weigh_current(value, jy_current)
 
         # WEIGH Jz
 
-        value = qc / dx * (specie.vb0 * cos_theta - specie.vxp * sin_theta) / dx
-        grids.jz_old = weigh_old(value, grids.jz_old)
-        grids.jz = weigh_current(value, grids.jz)
+        value = 0.5 * qc * (specie.vb0 * cos_theta - specie.vxp * sin_theta) / dx ** 2
+        jz_old = weigh_old(value, jz_old)
+        jz_current = weigh_current(value, jz_current)
 
         # WEIGH RHO
 
-        value = 1 / dx / dx
+        value = 1 / dx ** 2
         grids.den[index] = weigh_current(value, grids.den[index])
         grids.rho += qc * grids.den[index]
         index += 1
+
+    # CALCULATE J
+
+    grids.jy_left = jy_old + numpy.roll(jy_current, 1)
+    grids.jy_right = jy_old + numpy.roll(jy_current, -1)
+    grids.jz_left = jz_old + numpy.roll(jz_current, 1)
+    grids.jz_right = jz_old + numpy.roll(jz_current, -1)
 
     # GET ARGUMENTS
     args = (grids, comm)
@@ -181,7 +183,7 @@ def weigh_to_grid_es(grids, species, dx, comm, ng=user_input.ng):
 
         # WEIGH RHO
 
-        value = 1 / dx / dx
+        value = 1 / dx ** 2
         grids.den[index] = weigh_current(value, grids.den[index])
         grids.rho += qc * grids.den[index]
         index += 1

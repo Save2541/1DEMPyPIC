@@ -38,11 +38,11 @@ def generate_plasma(preset):
                 **qol.no_initial_wave()
             },
             "proton": {
-                **qol.realistic_protons(),
-                #"mass": 100 * constants.me_real,
-                #"charge": constants.qe_real,
+                #**qol.realistic_protons(),
+                "mass": 100 * constants.me_real,
+                "charge": constants.qe_real,
                 "number density": 1E8,
-                "temperature": 1E3,
+                "temperature": 1,
                 "drift velocity": 0,
                 "number of simulated particles per grid cell": 10,
                 **qol.no_initial_wave()
@@ -97,6 +97,17 @@ def generate_plasma(preset):
                 "temperature": 1,
                 "drift velocity": 0,
                 "number of simulated particles per grid cell": 3200,
+                **qol.no_initial_wave()
+            }
+        }
+    elif preset == 5:
+        specie_names = {
+            "electron": {
+                **qol.realistic_electrons(),
+                "number density": 1E8,
+                "temperature": 1E4,
+                "drift velocity": 0,
+                "number of simulated particles per grid cell": 10,
                 **qol.no_initial_wave()
             }
         }

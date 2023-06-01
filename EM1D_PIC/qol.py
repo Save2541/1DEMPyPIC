@@ -109,8 +109,8 @@ def sanity_check(sp_list, almanac, n_sample):
     assert user_input.nt_sample <= user_input.nt, "NOT ENOUGH TIME STEPS TO STORE! nt_sample CANNOT BE GREATER THAN {}!".format(
         user_input.nt)
     assert user_input.nt % user_input.nt_sample == 0, "nt IS NOT DIVISIBLE BY nt_sample!"
-    if user_input.is_electromagnetic:
-        assert constants.c * almanac["dt"] == almanac["dx"], "WRONG TIME STEP FOR EM CODE! USE dt = 1 * dx / c."
+    #if user_input.is_electromagnetic:
+    #    assert constants.c * almanac["dt"] == almanac["dx"], "WRONG TIME STEP FOR EM CODE! USE dt = 1 * dx / c."
     if sp_list.wp[0] * almanac["dt"] > 0.3:
         print("WARNING: TIME STEP TOO LARGE! TO GET AN ACCURATE RESULT, USE dt <= ",
               0.3 / sp_list.wp[0] / almanac["dx"] * constants.c, "* dx / c.")

@@ -79,10 +79,10 @@ def gather_den(grids, comm):
     grids.den = basket_den
 
 
-basket_jy_old = numpy.zeros(user_input.ng)
-basket_jz_old = numpy.zeros(user_input.ng)
-basket_jy = numpy.zeros(user_input.ng)
-basket_jz = numpy.zeros(user_input.ng)
+basket_jy_left = numpy.zeros(user_input.ng)
+basket_jz_left = numpy.zeros(user_input.ng)
+basket_jy_right = numpy.zeros(user_input.ng)
+basket_jz_right = numpy.zeros(user_input.ng)
 
 
 def gather_j(grids, comm):
@@ -92,17 +92,17 @@ def gather_j(grids, comm):
     :param comm: mpi comm
     :return:
     """
-    comm.Allreduce(grids.jy_old, basket_jy_old)
-    grids.jy_old = basket_jy_old
+    comm.Allreduce(grids.jy_left, basket_jy_left)
+    grids.jy_left = basket_jy_left
     # grids.jy_old = basket_jy_old - numpy.mean(basket_jy_old)
-    comm.Allreduce(grids.jy, basket_jy)
-    grids.jy = basket_jy
+    comm.Allreduce(grids.jy_right, basket_jy_right)
+    grids.jy_right = basket_jy_right
     # grids.jy = basket_jy - numpy.mean(basket_jy)
-    comm.Allreduce(grids.jz_old, basket_jz_old)
-    grids.jz_old = basket_jz_old
+    comm.Allreduce(grids.jz_left, basket_jz_left)
+    grids.jz_left = basket_jz_left
     # grids.jz_old = basket_jz_old - numpy.mean(basket_jz_old)
-    comm.Allreduce(grids.jz, basket_jz)
-    grids.jz = basket_jz
+    comm.Allreduce(grids.jz_right, basket_jz_right)
+    grids.jz_right = basket_jz_right
     # grids.jz = basket_jz - numpy.mean(basket_jz)
 
 

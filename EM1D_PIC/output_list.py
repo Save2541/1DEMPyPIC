@@ -61,7 +61,7 @@ class OutputList:
         for name in self.output_list:
             getattr(self, name)[index] = getattr(grids, name)
         for name in self.output_j_list:
-            getattr(self, name)[index] = 0.5 * (getattr(grids, name) + getattr(grids, name + "_old"))
+            getattr(self, name)[index] = 0.5 * (getattr(grids, name + "_left") + getattr(grids, name + "_right"))
 
     def get_output(self, *args):
         """

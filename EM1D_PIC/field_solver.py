@@ -35,13 +35,13 @@ def solve_field(grids, dt, epsilon, sqrt_mu_over_epsilon):
     :param sqrt_mu_over_epsilon: square root of mu naught over epsilon naught
     :return: none
     """
-    dt_over_4 = 0.25 * dt
+    dt_over_2 = 0.5 * dt
 
     # SOLVE RIGHT-GOING FIELD QUANTITY F = 1/2*(Ey + Bz)
-    grids.f_right = numpy.roll(grids.f_right_old - dt_over_4 * grids.jy_old, 1) - dt_over_4 * grids.jy
+    grids.f_right = numpy.roll(grids.f_right - dt_over_2 * grids.jy_right, 1)
 
     # SOLVE LEFT-GOING FIELD QUANTITY F = 1/2*(Ey - Bz)
-    grids.f_left = numpy.roll(grids.f_left_old - dt_over_4 * grids.jy_old, -1) - dt_over_4 * grids.jy
+    grids.f_left = numpy.roll(grids.f_left - dt_over_2 * grids.jy_left, 1)
 
     # SOLVE Ey
     grids.ey = (grids.f_right + grids.f_left) / epsilon
@@ -50,10 +50,10 @@ def solve_field(grids, dt, epsilon, sqrt_mu_over_epsilon):
     grids.bz = (grids.f_right - grids.f_left) * sqrt_mu_over_epsilon
 
     # SOLVE RIGHT-GOING FIELD QUANTITY G = 1/2*(Ez - By)
-    grids.g_right = numpy.roll(grids.g_right_old - dt_over_4 * grids.jz_old, 1) - dt_over_4 * grids.jz
+    grids.g_right = numpy.roll(grids.g_right - dt_over_2 * grids.jz_right, 1)
 
     # SOLVE LEFT-GOING FIELD QUANTITY G = 1/2*(Ez + By)
-    grids.g_left = numpy.roll(grids.g_left_old - dt_over_4 * grids.jz_old, -1) - dt_over_4 * grids.jz
+    grids.g_left = numpy.roll(grids.g_left - dt_over_2 * grids.jz_left, 1)
 
     # SOLVE Ez
     grids.ez = (grids.g_right + grids.g_left) / epsilon
