@@ -5,3 +5,4 @@
 /build
 /dist
 /EM1D_PIC/*.txt
+EM1D_PIC/user_input.py
