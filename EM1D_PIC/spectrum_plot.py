@@ -142,6 +142,9 @@ def plot_fourier(file_name):
     # GENERATE PLOT LIST
     plot_list = plot_generator.PlotList()
 
+    # USE DARK BACKGROUND
+    plt.style.use("dark_background")
+
     # SET UP CANVAS
     fig, axs = plt.subplots(*plot_list.shape, figsize=(21, 14))
 

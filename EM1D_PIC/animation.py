@@ -158,7 +158,7 @@ def set_up_add_plots(loader, add_plots, add_plot_keys, axs, length, grid_x, time
     return line_list, array_list
 
 
-def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, plot_colors, length, specie, line_list):
+def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, plot_colors, length, specie, line_list, time_step=0):
     """
     Set up phase space plot in the bottom axis
     :param x: particle positions
@@ -171,10 +171,11 @@ def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, 
     :param length: spatial length of the simulation
     :param specie: specie to focus on in the phase space animation
     :param line_list: list of lines to be animated
+    :param time_step: the time step to be plotted (0 for animation)
     :return: none
     """
-    init_x = x[plot_species, 0].flatten()
-    init_vx = vx[plot_species, 0].flatten()
+    init_x = x[plot_species, time_step].flatten()
+    init_vx = vx[plot_species, time_step].flatten()
     bottom_line = ax_bottom.scatter(init_x, init_vx, s=dot_size)  # draw an initial scatter plot
     color_list = numpy.concatenate([([i] * n_sample) for i in plot_colors], axis=0)
     bottom_line.set_facecolors(color_list)
@@ -274,8 +275,11 @@ def plot_non_fourier(file_name, specie=None, anim=True, time_step=None, add_plot
     # CHECK IF INPUT IS REASONABLE
     sanity_check(add_plot_keys, add_plots, plot_species, plot_colors, n_sp)
 
+    # USE DARK BACKGROUND
+    plt.style.use("dark_background")
+
     # SET UP CANVAS
-    fig, axs = plt.subplots(add_plots[0] + 1, add_plots[1], figsize=[18, 9.6])
+    fig, axs = plt.subplots(add_plots[0] + 1, add_plots[1], figsize=[18, 9.6], squeeze=False)
 
     # MERGE BOTTOM SUBPLOTS
     ax_bottom = merge_bottom_subplots(fig, axs)
@@ -284,7 +288,10 @@ def plot_non_fourier(file_name, specie=None, anim=True, time_step=None, add_plot
     line_list, array_list = set_up_add_plots(loader, add_plots, add_plot_keys, axs, length, grid_x, time_step)
 
     # SET PHASE SPACE PLOT
-    set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, plot_colors, length, specie, line_list)
+    if anim:
+        set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, plot_colors, length, specie, line_list)
+    else:
+        set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, plot_colors, length, specie, line_list, time_step)
 
     # PREVENT PLOT OVERLAPS
     plt.tight_layout()
