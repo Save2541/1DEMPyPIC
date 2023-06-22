@@ -2,11 +2,11 @@
 The 1DEMPyPIC Plasma Physics Simulator is a 1D electromagnetic particle-in-cell plasma physics simulation code written entirely in Python.
 ## How to run
 ### Input
-See user_input.py. Plasma specifications are in plasma_cauldron.py.
+Change user_input.py. Add plasma presets in plasma_cauldron.py or choose from existing ones.
 ### Run
 Run run.py. MPI is supported.
 ## How to plot the output
 ### Configure a plot
-See plot_config.py. 
+Change plot_config.py. 
 ### Create a plot
 Run Plot.py.
