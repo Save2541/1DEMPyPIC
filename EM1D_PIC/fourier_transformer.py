@@ -14,6 +14,8 @@ def get_data_array(key, data):
     """
     if key == "rho":
         return data["rho_list"]
+    elif key[:3] == "den":
+        return data["den"][:, int(key[3]), :]
     else:
         return data[key]
 

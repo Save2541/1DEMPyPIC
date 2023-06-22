@@ -43,7 +43,7 @@ def auto_get_line(plot_key, data, waves_of_interest=None):
     y_transverse_waves = ("ey", "by")
     z_transverse_waves = ("ez", "bz")
     # FIND AN APPROPRIATE THEORETICAL LINE
-    if plot_key in longitudinal_waves:
+    if plot_key in longitudinal_waves or plot_key[:3] == "den":
         # ELECTROSTATIC WAVES
         if waves_of_interest == 0:
             # ELECTRON ELECTROSTATIC WAVES
@@ -159,7 +159,7 @@ def get_theory_line(key, data, c=None, electron_id=None, ion_id=None):
     if key == 143:
         # PLASMA OSCILLATIONS
         k = qol.get_sample_k(dx, ng)
-        omega = numpy.sqrt(wp[electron_id] ** 2 + 3 / 2 * k ** 2 * v_th[electron_id] ** 2)
+        omega = numpy.sqrt(wp[electron_id] ** 2 + 3 * k ** 2 * v_th[electron_id] ** 2)
     elif key == 144:
         # UPPER HYBRID OSCILLATIONS
         k = qol.get_sample_k(dx, ng)

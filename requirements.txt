@@ -1,5 +1,6 @@
-numpy
-setuptools
-matplotlib
-zarr
-scipy
+numpy>=1.22.2
+setuptools>=57.4.0
+matplotlib>=3.7.1
+zarr>=2.14.2
+scipy>=1.8.0
+mpi4py>=3.1.4

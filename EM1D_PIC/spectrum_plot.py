@@ -54,7 +54,7 @@ def plot_spectrum(spectrum, axis, title, extent, orders_of_magnitude=None, maxim
     except ValueError:
         maximum = 0
     # PLOT SPECTRUM
-    shw = axis.imshow(spectrum, cmap='plasma',
+    shw = axis.imshow(spectrum, cmap='rainbow',
                       norm=LogNorm(vmin=10 ** (maximum - orders_of_magnitude), vmax=10 ** maximum), origin='lower',
                       extent=extent, aspect='auto', interpolation='none')
     # SET COLOR BAR
@@ -104,6 +104,7 @@ def draw_on_axes(plot_list, axs, loader, k_array, extent):
             # PLOT SPECTRUM
             spectrum_key = plot_list.keys[i][j]
             spectrum = fourier_transformer.fourier_transform_2d(spectrum_key, loader, k_array)
+            spectrum[:, 0] = 0  # Set k = 0 column to zero
             plot_spectrum(spectrum, axis, plot_list.title(i, j), extent)
             # PLOT LINE
             line_key = plot_list.overlays[i][j]
@@ -140,6 +141,9 @@ def plot_fourier(file_name):
 
     # GENERATE PLOT LIST
     plot_list = plot_generator.PlotList()
+
+    # USE DARK BACKGROUND
+    plt.style.use("dark_background")
 
     # SET UP CANVAS
     fig, axs = plt.subplots(*plot_list.shape, figsize=(21, 14))

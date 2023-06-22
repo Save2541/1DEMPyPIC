@@ -6,9 +6,9 @@ from . import user_input
 
 
 def first_step(species, grids, dx, dt, length, bx0, sin_theta, cos_theta, bz0, e_ext, epsilon, sqrt_mu_over_epsilon,
-               is_electromagnetic=user_input.is_electromagnetic):
+               comm, is_electromagnetic=user_input.is_electromagnetic):
     """
-    First step in time.
+    First step in time
     :param species: particle list
     :param grids: grid list
     :param dx: grid size
@@ -21,18 +21,19 @@ def first_step(species, grids, dx, dt, length, bx0, sin_theta, cos_theta, bz0, e
     :param e_ext: external electric field in the y direction
     :param epsilon: epsilon naught
     :param sqrt_mu_over_epsilon: sqrt(mu_0/epsilon_0)
+    :param comm: mpi comm
     :param is_electromagnetic: flag for EM code
     :return: none
     """
     particle_mover.move_particles_init(species, grids, dx, dt, length, bx0, sin_theta, cos_theta, bz0, e_ext)
-    particles_to_grids.weigh_to_grid(grids, species, dx, sin_theta, cos_theta)
+    particles_to_grids.weigh_to_grid(grids, species, dx, sin_theta, cos_theta, comm)
     if is_electromagnetic:
         field_solver.solve_field(grids, dt, epsilon, sqrt_mu_over_epsilon)
 
 
-def initialize(species, grids, almanac, sample_k, ksqi_over_epsilon, output, plot_particles_id):
+def initialize(species, grids, almanac, sample_k, ksqi_over_epsilon, output, plot_particles_id, comm):
     """
-    Initialize grid values and particle values.
+    Initialize grid values and particle values
     :param species: particle list
     :param grids: grid list
     :param almanac: dictionary of useful numbers
@@ -40,6 +41,7 @@ def initialize(species, grids, almanac, sample_k, ksqi_over_epsilon, output, plo
     :param ksqi_over_epsilon: list of values of k-squared-inverse divided by epsilon naught
     :param output: output list
     :param plot_particles_id: indices of selected particles to be plotted in phase space plot
+    :param comm: mpi comm
     :return: none
     """
     # GET VALUES FROM THE ALMANAC
@@ -48,7 +50,7 @@ def initialize(species, grids, almanac, sample_k, ksqi_over_epsilon, output, plo
         "sqrt_mu_over_epsilon")
 
     # INITIAL WEIGHTING (x to rho, hat function)
-    particles_to_grids.init_weigh_to_grid(species, grids, dx)
+    particles_to_grids.init_weigh_to_grid(species, grids, dx, comm)
 
     # INITIAL FIELD SOLVER (Find Ex)
     field_solver.solve_field_x(grids, dx, ksqi_over_epsilon, sample_k)
@@ -60,7 +62,8 @@ def initialize(species, grids, almanac, sample_k, ksqi_over_epsilon, output, plo
     output.update_xv_output(0, species, plot_particles_id, sin_theta, cos_theta)
 
     # FIRST STEP IN TIME
-    first_step(species, grids, dx, dt, length, bx0, sin_theta, cos_theta, bz0, e_ext, epsilon, sqrt_mu_over_epsilon)
+    first_step(species, grids, dx, dt, length, bx0, sin_theta, cos_theta, bz0, e_ext, epsilon, sqrt_mu_over_epsilon,
+               comm)
 
     # OUTPUT FIELD QUANTITIES FOR PLOTTING
     output.update_output(0, grids)

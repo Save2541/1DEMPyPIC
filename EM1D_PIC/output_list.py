@@ -4,13 +4,12 @@ from . import user_input
 
 
 class OutputList:
-    def __init__(self, output_name_list, n_sp, n_sample=user_input.n_sample, nt_sample=user_input.nt_sample,
-                 ng=user_input.ng):
+    def __init__(self, output_name_list, n_sp, n_sample, nt_sample=user_input.nt_sample, ng=user_input.ng):
         """
         Generate lists of outputs
         :param output_name_list: names of requested output
         :param n_sp: number of species
-        :param n_sample: number of particles to plot in phase space plot
+        :param n_sample: number of particles to plot in phase space plot (per processor)
         :param nt_sample: number of time steps to record
         :param ng: number of grid cells
         """
@@ -25,6 +24,9 @@ class OutputList:
             elif name in ["jy", "jz"]:
                 setattr(self, name, numpy.zeros(shape=(nt_sample, ng)))
                 self.output_j_list.append(name)
+            elif name == "den":
+                setattr(self, name, numpy.zeros(shape=(nt_sample, n_sp, ng)))
+                self.output_list.append(name)
             else:
                 assert False, "INVALID OUTPUT SELECTION!"
 
@@ -59,7 +61,7 @@ class OutputList:
         for name in self.output_list:
             getattr(self, name)[index] = getattr(grids, name)
         for name in self.output_j_list:
-            getattr(self, name)[index] = 0.5 * (getattr(grids, name) + getattr(grids, name + "_old"))
+            getattr(self, name)[index] = 0.5 * (getattr(grids, name + "_left") + getattr(grids, name + "_right"))
 
     def get_output(self, *args):
         """

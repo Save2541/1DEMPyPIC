@@ -7,6 +7,7 @@ from EM1D_PIC import grid_generator
 from EM1D_PIC import initializer
 from EM1D_PIC import input_compiler
 from EM1D_PIC import main
+from EM1D_PIC import multiprocessor
 from EM1D_PIC import output_list
 from EM1D_PIC import particle_distributor
 from EM1D_PIC import particle_generator
@@ -36,17 +37,22 @@ def get_user_input(preset, n_sample, output_names):
     return preset, n_sample, output_names
 
 
-def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=user_input.output_names):
+def run(preset=None, n_sample=None, output_names=None):
     """
-    Run the program.
+    Run the program
     :param preset: plasma preset selected by the user
     :param n_sample: number of particles whose info will be stored at this end
     :param output_names: list of requested outputs
     :return: none
     """
+    # SETUP MULTIPROCESSING
+    comm, size, rank = multiprocessor.setup_mpi()
 
     # GET USER INPUT
     preset, n_sample, output_names = get_user_input(preset, n_sample, output_names)
+
+    # CONVERT TO n_sample PER PROCESSOR
+    n_sample = n_sample // size
 
     # GENERATE PLASMA
     specie_names = plasma_cauldron.generate_plasma(preset)
@@ -55,23 +61,25 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     sp_list = specie_list.SpecieList(len(specie_names))
 
     # COMPILE INPUT AND DERIVE QUANTITIES
-    almanac = input_compiler.compile_input(sp_list, specie_names)
+    almanac = input_compiler.compile_input(sp_list, specie_names, size, rank)
 
     # PERFORM SANITY CHECK (PROGRAM WILL BREAK IF USER INPUT IS UNREASONABLE)
-    qol.sanity_check(sp_list, almanac)
+    if rank == 0:
+        qol.sanity_check(sp_list, almanac, n_sample)
 
     # CREATE LOG (TEXT FILE)
-    print("Logging...")
-    scribe.create_log(sp_list, almanac)
+        print("Logging...")
+        scribe.create_log(sp_list, almanac)
 
     # SCALE QUANTITIES TO SIMULATION UNITS
     unit_scale.scale_quantities(sp_list, almanac)
 
     # RECORD SCALE QUANTITIES TO LOG
-    scribe.add_to_log(sp_list, almanac)
+    if rank == 0:
+        scribe.add_to_log(sp_list, almanac)
 
     # GENERATE GRID POINTS (FROM LIST OF POSITIONS)
-    grids = grid_generator.generate_grids(almanac)
+    grids = grid_generator.generate_grids(almanac, sp_list.n_sp)
 
     # CONSTRUCT A RANDOM NUMBER GENERATOR
     rng = numpy.random.default_rng()
@@ -101,13 +109,22 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
     plot_particles_id = rng.choice(numpy.amin(sp_list.np), n_sample)
 
     # INITIALIZE ARRAYS TO STORE OUTPUT DATA
-    output = output_list.OutputList(output_names, sp_list.n_sp)
+    if rank == 0:
+        output = output_list.OutputList(output_names, sp_list.n_sp, n_sample)
+
+    else:
+        new_output_names = []
+        if "x" in output_names:
+            new_output_names.append("x")
+        if "v" in output_names:
+            new_output_names.append("v")
+        output = output_list.OutputList(new_output_names, sp_list.n_sp, n_sample)
 
     # GET STARTING TIME
     start_time = time.monotonic()
 
     # INITIALIZE GRIDS
-    initializer.initialize(species, grids, almanac, sample_k, ksqi_over_epsilon, output, plot_particles_id)
+    initializer.initialize(species, grids, almanac, sample_k, ksqi_over_epsilon, output, plot_particles_id, comm)
 
     # RUN MAIN PROGRAM WITH PROFILER
     if __name__ == '__main__':
@@ -116,21 +133,34 @@ def run(preset=user_input.preset, n_sample=user_input.n_sample, output_names=use
 
         profiler = cProfile.Profile()
         profiler.enable()
-        main.main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_particles_id)
+        main.main(species, grids, almanac, ksqi_over_epsilon, sample_k, output, plot_particles_id, comm, rank)
         profiler.disable()
         s = io.StringIO()
         stats = pstats.Stats(profiler, stream=s).sort_stats('tottime')
         stats.print_stats()
 
-        with open('outstats.txt', 'w+') as f:
-            f.write(s.getvalue())
+        if rank == 0:
+            with open('outstats.txt', 'w+') as f:
+                f.write(s.getvalue())
 
-    # OUTPUT RUNTIME AND FINISH LOG
-    file_name = almanac["file name"]
-    scribe.finish_log(start_time, file_name)
+    # GATHER XV OUTPUT
+    if rank == 0:
+        print("GATHERING PARTICLES...")
+    x_data, v_data = multiprocessor.gather_xv(output, comm, size, rank)
 
-    # SAVE DATA TO ZIP FILE
-    zipper.save_to_zip(sp_list, almanac, output, grids)
+    if rank == 0:
+        # OUTPUT RUNTIME AND FINISH LOG
+        file_name = almanac["file name"]
+        scribe.finish_log(start_time, file_name)
+
+        if hasattr(output, "x"):
+            output.x = x_data
+        if hasattr(output, "v"):
+            output.v = v_data
+
+        # SAVE DATA TO ZIP FILE
+        print("SAVING DATA...")
+        zipper.save_to_zip(sp_list, almanac, output, grids)
 
 
 run()
