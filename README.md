@@ -5,7 +5,7 @@ The 1DEMPyPIC Plasma Physics Simulator is a 1D electromagnetic particle-in-cell 
 See user_input.py.
 ### Run
 Run run.py. MPI is supported.
-## How to plot your output
+## How to plot the output
 ### Configure a plot
 See plot_config.py. 
 ### Create a plot
