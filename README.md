@@ -10,3 +10,5 @@ Run run.py. MPI is supported.
 Change plot_config.py. 
 ### Create a plot
 Run Plot.py.
+## How to contact the developer
+By email at rakoon@bu.edu.
