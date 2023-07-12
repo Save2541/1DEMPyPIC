@@ -52,11 +52,11 @@ def scale_quantities(sp_list, almanac):
     # SCALED GRID SIZES
     almanac["dx"] /= almanac["slu"]  # spatial grid size
     almanac["length"] = user_input.ng * almanac["dx"]  # length of the system
-    almanac["dt"] = almanac["dx"] / almanac["c"]  # duration of time step
+    almanac["dt"] /= almanac["stu"]  # duration of time step
     almanac["dt_sample"] = almanac["dt"] * user_input.nt / user_input.nt_sample  # duration per sample
 
     # PROPERTIES OF PIC PARTICLES
-    sp_list.charge = sp_list.wp ** 2 * almanac["length"] / sp_list.np * almanac[
+    sp_list.charge = sp_list.wp ** 2 * almanac["length"] / sp_list.np_all * almanac[
         "epsilon"] / sp_list.qm  # charge per PIC particle
     sp_list.mass = sp_list.charge / sp_list.qm  # mass per PIC particle
 
@@ -144,6 +144,16 @@ def convert_to_coulombs_per_cubic_meter(value, almanac):
     """
     (slu, scu) = qol.read_almanac(almanac, "slu", "scu")
     return value * scu / slu ** 3
+
+
+def convert_to_particles_per_cubic_meter(value, almanac):
+    """
+    Convert number density from simulation units to particles per cubic meters
+    :param value: number density in simulation units
+    :param almanac: dictionary of useful numbers
+    :return: number density in particles per cubic meter
+    """
+    return value / almanac["slu"] ** 3
 
 
 def convert_to_amperes_per_square_meter(value, almanac):

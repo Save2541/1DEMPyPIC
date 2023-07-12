@@ -51,7 +51,7 @@ def get_args_interpolate(specie, grids, dx, ng=None):
     return nearest_left_grid_point, nearest_right_grid_point, x_right_weight
 
 
-def solve_equations_of_motion(specie, dx, dt, length, ex, ey, ez, bx0, bz, sin_theta, cos_theta, pool=None):
+def solve_equations_of_motion(specie, dx, dt, length, ex, ey, ez, bx0, bz, sin_theta, cos_theta):
     """
     Solve equations of motion and move particles. Also store old positions and update particles' nearest grids.
     :param specie: list of particles
@@ -65,7 +65,6 @@ def solve_equations_of_motion(specie, dx, dt, length, ex, ey, ez, bx0, bz, sin_t
     :param bz: magnetic field z
     :param sin_theta: sine of theta, where theta is the angle between B_0 and the z axis
     :param cos_theta: cosine of theta, where theta is the angle between B_0 and the z axis
-    :param pool: multiprocessing pool
     :return: none
     """
     # STORE PREVIOUS POSITIONS
@@ -73,59 +72,31 @@ def solve_equations_of_motion(specie, dx, dt, length, ex, ey, ez, bx0, bz, sin_t
     # GET THE CHARGE PER MASS RATIO TIMES dt
     q_by_m_dt = specie.qm * dt  # SCALARS
     half_q_by_m_dt = 0.5 * q_by_m_dt  # SCALARS
-    if pool is None:
-        # PROJECT MAGNETIC FIELD TO THE b0 DIRECTION (b0 direction = (sin(theta), cos(theta)))
-        bb0 = bz * cos_theta + bx0 * sin_theta  # ARRAYS
-        # CALCULATE ROTATION ANGLE
-        d_theta = - q_by_m_dt * bb0  # ARRAYS
-        sin_d_theta = numpy.sin(d_theta)  # ARRAYS
-        cos_d_theta = numpy.cos(d_theta)  # ARRAYS
-        # CALCULATE HALF ACCELERATION IN xp AND y DIRECTION
-        half_acceleration_xp = half_q_by_m_dt * (ex * cos_theta - ez * sin_theta)  # ARRAYS
-        half_acceleration_y = half_q_by_m_dt * ey  # ARRAYS
-        # CALCULATE FULL ACCELERATION IN b0 DIRECTION
-        full_acceleration_b0 = q_by_m_dt * (ex * sin_theta + ez * cos_theta)  # ARRAYS
-        # ADD HALF ACCELERATIONS TO CORRESPONDING VELOCITIES
-        vxp_1 = specie.vxp_old + half_acceleration_xp  # ARRAYS
-        vy_1 = specie.vy_old + half_acceleration_y  # ARRAYS
-        # APPLY ROTATION AND HALF ACCELERATIONS
-        specie.vxp = cos_d_theta * vxp_1 - sin_d_theta * vy_1 + half_acceleration_xp
-        specie.vy = sin_d_theta * vxp_1 + cos_d_theta * vy_1 + half_acceleration_y
-        # APPLY FULL ACCELERATION FOR vb0
-        specie.vb0 = specie.vb0_old + full_acceleration_b0
-        # MOVE X
-        specie.x = numpy.fmod(specie.vx(sin_theta, cos_theta) * dt + specie.x_old, length)
-        # MAKE SURE THAT 0 < X < LENGTH
-        specie.x[specie.x < 0] += length
-        # UPDATE NEAREST GRIDS
-        specie.update_nearest_grid(dx)
-    else:
-        sin_and_cos_d_theta_getter = pool.apply_async(_get_sin_and_cos_d_theta,
-                                                      args=(bz, cos_theta, bx0, sin_theta, q_by_m_dt))
-        half_acceleration_xp_getter = pool.apply_async(_get_half_acceleration_xp,
-                                                       args=(half_q_by_m_dt, ex, cos_theta, ez, sin_theta))
-        half_acceleration_y_getter = pool.apply_async(_get_half_acceleration_y, args=(half_q_by_m_dt, ey))
-        specie_vb0_getter = pool.apply_async(_get_specie_vb0, args=(specie, q_by_m_dt, ex, sin_theta, ez, cos_theta))
-        half_acceleration_xp = half_acceleration_xp_getter.get()
-        vxp_1_getter = pool.apply_async(_get_vxp_1, args=(specie, half_acceleration_xp))
-        half_acceleration_y = half_acceleration_y_getter.get()
-        vy_1_getter = pool.apply_async(_get_vy_1, args=(specie, half_acceleration_y))
-        sin_d_theta, cos_d_theta = sin_and_cos_d_theta_getter.get()
-        vxp_1 = vxp_1_getter.get()
-        vy_1 = vy_1_getter.get()
-        specie_vxp_getter = pool.apply_async(_get_specie_vxp,
-                                             args=(cos_d_theta, vxp_1, sin_d_theta, vy_1, half_acceleration_xp))
-        specie_vy_getter = pool.apply_async(_get_specie_vy,
-                                            args=(sin_d_theta, vxp_1, cos_d_theta, vy_1, half_acceleration_y))
-        specie.vxp = specie_vxp_getter.get()
-        specie.vy = specie_vy_getter.get()
-        specie.vb0 = specie_vb0_getter.get()
-        # MOVE X
-        specie.x = numpy.fmod(specie.vx(sin_theta, cos_theta) * dt + specie.x_old, length)
-        # MAKE SURE THAT 0 < X < LENGTH
-        specie.x[specie.x < 0] += length
-        # UPDATE NEAREST GRIDS
-        specie.update_nearest_grid(dx)
+    # PROJECT MAGNETIC FIELD TO THE b0 DIRECTION (b0 direction = (sin(theta), cos(theta)))
+    bb0 = bz * cos_theta + bx0 * sin_theta  # ARRAYS
+    # CALCULATE ROTATION ANGLE
+    d_theta = - q_by_m_dt * bb0  # ARRAYS
+    sin_d_theta = numpy.sin(d_theta)  # ARRAYS
+    cos_d_theta = numpy.cos(d_theta)  # ARRAYS
+    # CALCULATE HALF ACCELERATION IN xp AND y DIRECTION
+    half_acceleration_xp = half_q_by_m_dt * (ex * cos_theta - ez * sin_theta)  # ARRAYS
+    half_acceleration_y = half_q_by_m_dt * ey  # ARRAYS
+    # CALCULATE FULL ACCELERATION IN b0 DIRECTION
+    full_acceleration_b0 = q_by_m_dt * (ex * sin_theta + ez * cos_theta)  # ARRAYS
+    # ADD HALF ACCELERATIONS TO CORRESPONDING VELOCITIES
+    vxp_1 = specie.vxp_old + half_acceleration_xp  # ARRAYS
+    vy_1 = specie.vy_old + half_acceleration_y  # ARRAYS
+    # APPLY ROTATION AND HALF ACCELERATIONS
+    specie.vxp = cos_d_theta * vxp_1 - sin_d_theta * vy_1 + half_acceleration_xp
+    specie.vy = sin_d_theta * vxp_1 + cos_d_theta * vy_1 + half_acceleration_y
+    # APPLY FULL ACCELERATION FOR vb0
+    specie.vb0 = specie.vb0_old + full_acceleration_b0
+    # MOVE X
+    specie.x = numpy.fmod(specie.vx(sin_theta, cos_theta) * dt + specie.x_old, length)
+    # MAKE SURE THAT 0 < X < LENGTH
+    specie.x[specie.x < 0] += length
+    # UPDATE NEAREST GRIDS
+    specie.update_nearest_grid(dx)
 
 
 def _get_specie_vb0(specie, q_by_m_dt, ex, sin_theta, ez, cos_theta):
@@ -241,7 +212,7 @@ def move_particles_init(species, grids, dx, dt, length, bx0, sin_theta, cos_thet
         solve_equations_of_motion(specie, dx, dt, length, ex, ey, ez, bx0, bz, sin_theta, cos_theta)
 
 
-def move_particles_em(species, grids, dx, dt, length, bx0, sin_theta, cos_theta, pool=None):
+def move_particles_em(species, grids, dx, dt, length, bx0, sin_theta, cos_theta):
     """
     Particle mover for electromagnetic code
     :param species: list of particles divided into species
@@ -252,7 +223,6 @@ def move_particles_em(species, grids, dx, dt, length, bx0, sin_theta, cos_theta,
     :param bx0: magnetic field in the x-direction (always constant)
     :param sin_theta: sine of theta, where theta is the angle between B_0 and the z axis
     :param cos_theta: cosine of theta, where theta is the angle between B_0 and the z axis
-    :param pool: multiprocessing pool
     :return: none
     """
     for specie in species:  # loop for each specie
@@ -262,26 +232,13 @@ def move_particles_em(species, grids, dx, dt, length, bx0, sin_theta, cos_theta,
         # GET ARGUMENTS FOR THE INTERPOLATION FUNCTION
         args_interpolate = get_args_interpolate(specie, grids, dx)
 
-        if pool is None:
-            # INTERPOLATE FIELD QUANTITIES FROM GRIDS TO PARTICLES
-            ex = interpolate(grids.ex, *args_interpolate)
+        # INTERPOLATE FIELD QUANTITIES FROM GRIDS TO PARTICLES
+        ex = interpolate(grids.ex, *args_interpolate)
 
-            # INTERPOLATE ELECTROMAGNETIC FIELDS
-            bz = interpolate(grids.bz, *args_interpolate)
-            ey = interpolate(grids.ey, *args_interpolate)
-            ez = interpolate(grids.ez, *args_interpolate)
-        else:
-            # set up pool workers
-            ex = pool.apply_async(interpolate, args=(grids.ex, *args_interpolate))
-            bz = pool.apply_async(interpolate, args=(grids.bz, *args_interpolate))
-            ey = pool.apply_async(interpolate, args=(grids.ey, *args_interpolate))
-            ez = pool.apply_async(interpolate, args=(grids.ez, *args_interpolate))
-
-            # get results from pool workers
-            ex = ex.get()
-            bz = bz.get()
-            ey = ey.get()
-            ez = ez.get()
+        # INTERPOLATE ELECTROMAGNETIC FIELDS
+        bz = interpolate(grids.bz, *args_interpolate)
+        ey = interpolate(grids.ey, *args_interpolate)
+        ez = interpolate(grids.ez, *args_interpolate)
 
         # SOLVE EQUATIONS OF MOTION AND MOVE PARTICLES
         solve_equations_of_motion(specie, dx, dt, length, ex, ey, ez, bx0, bz, sin_theta, cos_theta)

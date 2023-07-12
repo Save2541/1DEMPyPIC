@@ -6,7 +6,7 @@ from . import digital_filtering
 
 def solve_field_x(grids, dx, ksqi_over_epsilon, sample_k):
     """
-    Find Ex using Poisson's Equation.
+    Find Ex using Poisson's Equation
     :param grids: list of grid cells
     :param dx: grid size
     :param ksqi_over_epsilon: list of values of k-squared-inverse divided by epsilon naught
@@ -35,24 +35,28 @@ def solve_field(grids, dt, epsilon, sqrt_mu_over_epsilon):
     :param sqrt_mu_over_epsilon: square root of mu naught over epsilon naught
     :return: none
     """
+    dt_over_2 = 0.5 * dt
 
     # SOLVE RIGHT-GOING FIELD QUANTITY F = 1/2*(Ey + Bz)
-    grids.f_right = numpy.roll(grids.f_right_old, 1) - (dt / 4) * (
-            numpy.roll(grids.jy_old, 1) + grids.jy)
+    grids.f_right = numpy.roll(grids.f_right - dt_over_2 * grids.jy_right, 1)
+
     # SOLVE LEFT-GOING FIELD QUANTITY F = 1/2*(Ey - Bz)
-    grids.f_left = numpy.roll(grids.f_left_old, -1) - (dt / 4) * (
-            numpy.roll(grids.jy_old, -1) + grids.jy)
+    grids.f_left = numpy.roll(grids.f_left - dt_over_2 * grids.jy_left, -1)
+
     # SOLVE Ey
     grids.ey = (grids.f_right + grids.f_left) / epsilon
+
     # SOLVE Bz
     grids.bz = (grids.f_right - grids.f_left) * sqrt_mu_over_epsilon
+
     # SOLVE RIGHT-GOING FIELD QUANTITY G = 1/2*(Ez - By)
-    grids.g_right = numpy.roll(grids.g_right_old, 1) - (dt / 4) * (
-            numpy.roll(grids.jz_old, 1) + grids.jz)
+    grids.g_right = numpy.roll(grids.g_right - dt_over_2 * grids.jz_right, 1)
+
     # SOLVE LEFT-GOING FIELD QUANTITY G = 1/2*(Ez + By)
-    grids.g_left = numpy.roll(grids.g_left_old, -1) - (dt / 4) * (
-            numpy.roll(grids.jz_old, -1) + grids.jz)
+    grids.g_left = numpy.roll(grids.g_left - dt_over_2 * grids.jz_left, -1)
+
     # SOLVE Ez
     grids.ez = (grids.g_right + grids.g_left) / epsilon
+
     # SOLVE By
     grids.by = (grids.g_left - grids.g_right) * sqrt_mu_over_epsilon

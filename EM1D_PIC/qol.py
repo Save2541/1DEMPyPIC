@@ -5,6 +5,7 @@ import scipy.fft
 
 from . import constants
 from . import user_input
+from . import plasma_cauldron
 
 
 def electronvolt_to_kelvin(ev):
@@ -92,23 +93,24 @@ def number_of_waves_to_wave_number(nw, length):
     return 2 * math.pi * nw / length
 
 
-def sanity_check(sp_list, almanac):
+def sanity_check(sp_list, almanac, n_sample):
     """
-    Check if setup is reasonable.
+    Check if setup is reasonable
     :param sp_list: list of specie parameters
     :param almanac: dictionary of general parameters
+    :param n_sample: number of sample particles per processor
     :return: None
     """
     assert numpy.all(sp_list.drift_velocity < constants.c), "DRIFT VELOCITY GREATER THAN THE SPEED OF LIGHT!"
     assert numpy.all(sp_list.vth < constants.c), "THERMAL VELOCITY GREATER THAN THE SPEED OF LIGHT!"
     minimum = numpy.amin(sp_list.np)
-    assert user_input.n_sample <= minimum, "NOT ENOUGH PARTICLES TO STORE! n_sample CANNOT BE GREATER THAN {}!".format(
+    assert n_sample <= minimum, "NOT ENOUGH PARTICLES TO STORE! n_sample CANNOT BE GREATER THAN {}!".format(
         minimum)
     assert user_input.nt_sample <= user_input.nt, "NOT ENOUGH TIME STEPS TO STORE! nt_sample CANNOT BE GREATER THAN {}!".format(
         user_input.nt)
     assert user_input.nt % user_input.nt_sample == 0, "nt IS NOT DIVISIBLE BY nt_sample!"
-    if user_input.is_electromagnetic:
-        assert constants.c * almanac["dt"] == almanac["dx"], "WRONG TIME STEP FOR EM CODE! USE dt = 1 * dx / c."
+    #if user_input.is_electromagnetic:
+    #    assert constants.c * almanac["dt"] == almanac["dx"], "WRONG TIME STEP FOR EM CODE! USE dt = 1 * dx / c."
     if sp_list.wp[0] * almanac["dt"] > 0.3:
         print("WARNING: TIME STEP TOO LARGE! TO GET AN ACCURATE RESULT, USE dt <= ",
               0.3 / sp_list.wp[0] / almanac["dx"] * constants.c, "* dx / c.")
@@ -191,3 +193,10 @@ def extent_function(xcoords, ycoords):
     dy = (ycoords[-1] - ycoords[0]) / Ny
     return numpy.array([*(xcoords[0] + numpy.array([0 - dx / 2, dx * Nx + dx / 2])),
                         *(ycoords[0] + numpy.array([0 - dy / 2, dy * Ny + dy / 2]))])
+
+
+def get_n_sp(preset=user_input.preset):
+    """
+    Get number of species
+    """
+    return len(plasma_cauldron.generate_plasma(preset))

@@ -45,7 +45,7 @@ def create_log(sp_list, almanac):
         print("\ttemperature (T)                                = {:.2e} K".format(sp_list.temperature[i]), file=log)
         print("\tdrift velocity (u_0)                           = {:.2e} m s^-1".format(sp_list.drift_velocity[i]),
               file=log)
-        print("\tnumber of simulated particles (np)             = {} particles".format(sp_list.np[i]), file=log)
+        print("\tnumber of simulated particles (np)             = {} particles".format(sp_list.np_all[i]), file=log)
         print("\tplasma frequency (omega_p)                     = {:.2e} rad s^-1".format(sp_list.wp[i]), file=log)
         print("\tcyclotron frequency (omega_c)                  = {:.2e} rad s^-1".format(sp_list.wc[i]), file=log)
         print("\tthermal energy (kT)                            = {:.2e} J".format(sp_list.kt[i]), file=log)
@@ -120,7 +120,7 @@ def add_to_log(sp_list, almanac, nt=user_input.nt):
         print("\tmass (m)                                       = {:.2e}".format(sp_list.mass[i]), file=log)
         print("\tcharge (q)                                     = {:.2e}".format(sp_list.charge[i]), file=log)
         print("\tdrift velocity (u_0)                           = {:.2e}".format(sp_list.drift_velocity[i]), file=log)
-        print("\tnumber of particles (np)                       = {}".format(sp_list.np[i]), file=log)
+        print("\tnumber of particles (np)                       = {}".format(sp_list.np_all[i]), file=log)
         print("\tplasma frequency (omega_p)                     = {:.2e}".format(sp_list.wp[i]), file=log)
         print("\tcyclotron frequency (omega_c)                  = {:.2e}".format(sp_list.wc[i]), file=log)
         print("\tthermal energy (kT)                            = {:.2e}".format(sp_list.kt[i]), file=log)
