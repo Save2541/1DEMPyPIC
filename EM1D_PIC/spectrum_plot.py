@@ -59,12 +59,17 @@ def plot_spectrum(spectrum, axis, title, extent, orders_of_magnitude=None, maxim
                       extent=extent, aspect='auto', interpolation='none')
     # SET COLOR BAR
     plt.colorbar(shw, ax=axis)
+    # SET FONT
+    font_size = 28
+    font_family = 'Palatino Linotype'
     # SET TITLE
-    axis.set_title(title)
+    axis.set_title(title, fontsize=font_size, fontfamily=font_family)
     # LABEL X-AXIS
-    axis.set_xlabel('k (rad/m)')
+    axis.set_xlabel('k (rad/m)', fontsize=font_size, fontfamily=font_family)
     # LABEL Y_AXIS
-    axis.set_ylabel('omega (rad/s)')
+    axis.set_ylabel('omega (rad/s)', fontsize=font_size, fontfamily=font_family)
+    # SET LABEL SIZE
+    axis.tick_params(axis='both', which='both', labelsize='xx-large')
 
 
 def crop_plot(axis, extent, x_lim=None, y_lim=None):

@@ -144,16 +144,28 @@ def set_up_add_plots(loader, add_plots, add_plot_keys, axs, length, grid_x, time
                 array = loader["den"][:, int(key[3]), :]
                 title = key.capitalize()
                 units = "1/m^3"
+            elif key == "energy density":
+                e_squared = loader["ex"] ** 2 + loader["ey"] ** 2 + loader["ez"] ** 2
+                b_squared = (loader["b0"] * numpy.sin(loader["theta"])) ** 2 + loader["by"] ** 2 + loader["bz"] ** 2
+                epsilon_0 = 8.85E-12
+                mu_0 = 1.26E-6
+                array = 0.5 * epsilon_0 * e_squared + 0.5 * b_squared / mu_0
+                title = key.capitalize()
+                units = "J/m^3"
             else:
                 assert False, "Invalid plot key: {}".format(key)
             axis = axs[i, j]
-            axis.set_title(title)
-            axis.set_xlabel("x (m)")
-            axis.set_ylabel("{} ({})".format(title, units))
+            # SET FONT
+            font_size = 44
+            font_family = 'Palatino Linotype'
+            axis.set_title(title, fontsize=font_size, fontfamily=font_family)
+            axis.set_xlabel("x (m)", fontsize=font_size, fontfamily=font_family)
+            axis.set_ylabel("{} ({})".format(title, units), fontsize=font_size, fontfamily=font_family)
             axis.set_xlim([0, length])
             axis.set_ylim(y_axis_limit(array))
+            axis.tick_params(axis='both', which='both', labelsize=36) # SET LABEL SIZE
             array_list.append(array)
-            line, = axis.plot(grid_x, array[time_step])
+            line, = axis.plot(grid_x, array[time_step], linewidth=3)
             line_list.append(line)
     return line_list, array_list
 
@@ -180,11 +192,14 @@ def set_up_phase_space_plot(x, vx, ax_bottom, dot_size, n_sample, plot_species, 
     color_list = numpy.concatenate([([i] * n_sample) for i in plot_colors], axis=0)
     bottom_line.set_facecolors(color_list)
     line_list.append(bottom_line)
-    ax_bottom.set_title("Phase space")
-    ax_bottom.set_xlabel("x (m)")
-    ax_bottom.set_ylabel("vx (m/s)")
+    font_size = 44
+    font_family = 'Palatino Linotype'
+    ax_bottom.set_title("Phase space", fontsize=font_size, fontfamily=font_family)
+    ax_bottom.set_xlabel("x (m)", fontsize=font_size, fontfamily=font_family)
+    ax_bottom.set_ylabel("vx (m/s)", fontsize=font_size, fontfamily=font_family)
     ax_bottom.set_xlim([0, length])
     ax_bottom.set_ylim(y_axis_limit(vx[specie]))
+    ax_bottom.tick_params(axis='both', which='both', labelsize=36)
 
 
 def animate_and_save_to_mp4(fig, x, vx, line_list, array_list, frame_interval, fps, nt, file_name, plot_species):
