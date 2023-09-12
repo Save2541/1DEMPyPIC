@@ -4,11 +4,12 @@ from . import user_input
 
 
 class OutputList:
-    def __init__(self, output_name_list, n_sp, n_sample, nt_sample=user_input.nt_sample, ng=user_input.ng):
+    def __init__(self, output_name_list, n_sp, n_out_sp, n_sample, nt_sample=user_input.nt_sample, ng=user_input.ng):
         """
         Generate lists of outputs
         :param output_name_list: names of requested output
         :param n_sp: number of species
+        :param n_out_sp: number of species of which x and v will be outputted
         :param n_sample: number of particles to plot in phase space plot (per processor)
         :param nt_sample: number of time steps to record
         :param ng: number of grid cells
@@ -17,7 +18,7 @@ class OutputList:
         self.output_j_list = []
         for name in output_name_list:
             if name in ["x", "v"]:
-                setattr(self, name, numpy.zeros(shape=(n_sp, nt_sample, n_sample)))
+                setattr(self, name, numpy.zeros(shape=(n_out_sp, nt_sample, n_sample)))
             elif name in ["ex", "ey", "ez", "by", "bz", "rho"]:
                 setattr(self, name, numpy.zeros(shape=(nt_sample, ng)))
                 self.output_list.append(name)
@@ -40,16 +41,21 @@ class OutputList:
         :param cos_theta: cosine of b0 angle
         :return: none
         """
+        counter = 0
         if hasattr(self, "x") and hasattr(self, "v"):
-            for i in range(len(species)):
-                self.x[i][index] = species[i].x[plot_particles_id]
-                self.v[i][index] = species[i].vx(sin_theta, cos_theta)[plot_particles_id]
+            for specie in species:
+                if specie.is_output:
+                    self.x[counter][index] = specie.x[plot_particles_id]
+                    self.v[counter][index] = specie.vx(sin_theta, cos_theta)[plot_particles_id]
+                    counter += 1
         elif hasattr(self, "x"):
-            for i in range(len(species)):
-                self.x[i][index] = species[i].x[plot_particles_id]
+            for specie in species:
+                self.x[counter][index] = specie.x[plot_particles_id]
+                counter += 1
         elif hasattr(self, "v"):
-            for i in range(len(species)):
-                self.v[i][index] = species[i].vx(sin_theta, cos_theta)[plot_particles_id]
+            for specie in species:
+                self.v[counter][index] = specie.vx(sin_theta, cos_theta)[plot_particles_id]
+                counter += 1
 
     def update_output(self, index, grids):
         """

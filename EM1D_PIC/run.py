@@ -109,8 +109,9 @@ def run(preset=None, n_sample=None, output_names=None):
     plot_particles_id = rng.choice(numpy.amin(sp_list.np), n_sample)
 
     # INITIALIZE ARRAYS TO STORE OUTPUT DATA
+    args = (sp_list.n_sp, len(sp_list.out_sp), n_sample)
     if rank == 0:
-        output = output_list.OutputList(output_names, sp_list.n_sp, n_sample)
+        output = output_list.OutputList(output_names, *args)
 
     else:
         new_output_names = []
@@ -118,7 +119,7 @@ def run(preset=None, n_sample=None, output_names=None):
             new_output_names.append("x")
         if "v" in output_names:
             new_output_names.append("v")
-        output = output_list.OutputList(new_output_names, sp_list.n_sp, n_sample)
+        output = output_list.OutputList(new_output_names, *args)
 
     # GET STARTING TIME
     start_time = time.monotonic()

@@ -103,7 +103,7 @@ def sanity_check(sp_list, almanac, n_sample):
     """
     assert numpy.all(sp_list.drift_velocity < constants.c), "DRIFT VELOCITY GREATER THAN THE SPEED OF LIGHT!"
     assert numpy.all(sp_list.vth < constants.c), "THERMAL VELOCITY GREATER THAN THE SPEED OF LIGHT!"
-    minimum = numpy.amin(sp_list.np)
+    minimum = numpy.amin(sp_list.np[sp_list.out_sp])
     assert n_sample <= minimum, "NOT ENOUGH PARTICLES TO STORE! n_sample CANNOT BE GREATER THAN {}!".format(
         minimum)
     assert user_input.nt_sample <= user_input.nt, "NOT ENOUGH TIME STEPS TO STORE! nt_sample CANNOT BE GREATER THAN {}!".format(

@@ -2,7 +2,7 @@ import numpy
 
 
 class ParticleList:
-    def __init__(self, x, np, q, m, qm, vy=None, vxp=None, vb0=None,
+    def __init__(self, x, np, q, m, qm, is_output=True, vy=None, vxp=None, vb0=None,
                  x_old=None, vy_old=None,
                  vxp_old=None, vb0_old=None, left_grid=None,
                  left_grid_old=None):
@@ -13,6 +13,7 @@ class ParticleList:
         :param q: PIC particle charge
         :param m: PIC particle mass
         :param qm: charge-to-mass ratio
+        :param is_output: whether the specie x or v will be outputted
         :param vy: velocity in the y direction
         :param vxp: velocity in the x' direction
         :param vb0: velocity in the B_0 direction
@@ -27,6 +28,7 @@ class ParticleList:
         self.q = q
         self.m = m
         self.qm = qm
+        self.is_output = is_output
         self.vy = vy
         self.vxp = vxp
         self.vb0 = vb0
@@ -97,8 +99,13 @@ def generate_particles(sp_list, x_list, v_list, args_list):
     species = []
     for i in range(0, sp_list.n_sp):
         specie_name = sp_list.name[i]
+        if i in sp_list.out_sp:
+            is_output = True
+        else:
+            is_output = False
         species.append(ParticleList(x_list[specie_name],  # uniform position distribution
                                     *args_list[i],
+                                    is_output=is_output,
                                     # gaussian velocity distribution
                                     vxp=v_list[specie_name]["vxp"],
                                     vy=v_list[specie_name]["vy"],

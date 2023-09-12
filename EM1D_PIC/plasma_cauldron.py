@@ -16,6 +16,7 @@ def generate_plasma(preset):
                 "temperature": 1E4,
                 "drift velocity": 120E4,
                 "number of simulated particles per grid cell": 10,
+                "output": True,
                 **qol.no_initial_wave()
             },
             "electron_l": {
@@ -24,6 +25,7 @@ def generate_plasma(preset):
                 "temperature": 1E4,
                 "drift velocity": -120E4,
                 "number of simulated particles per grid cell": 10,
+                "output": True,
                 **qol.no_initial_wave()
             }
         }
@@ -35,6 +37,7 @@ def generate_plasma(preset):
                 "temperature": 1E4,
                 "drift velocity": 0,
                 "number of simulated particles per grid cell": 10,
+                "output": True,
                 **qol.no_initial_wave()
             },
             "proton": {
@@ -45,6 +48,7 @@ def generate_plasma(preset):
                 "temperature": 1,
                 "drift velocity": 0,
                 "number of simulated particles per grid cell": 10,
+                "output": True,
                 **qol.no_initial_wave()
             }
         }
@@ -56,6 +60,7 @@ def generate_plasma(preset):
                 "temperature": qol.electronvolt_to_kelvin(1),
                 "drift velocity": 6E4, #5.9E4,
                 "number of simulated particles per grid cell": 10,
+                "output": False,
                 **qol.no_initial_wave()
             },
             "proton": {
@@ -66,6 +71,7 @@ def generate_plasma(preset):
                 "temperature": qol.electronvolt_to_kelvin(100),
                 "drift velocity": 1.2E5, #1.18E5,
                 "number of simulated particles per grid cell": 10,
+                "output": True,
                 **qol.no_initial_wave()
             },
             "oxygen ion": {
@@ -76,6 +82,7 @@ def generate_plasma(preset):
                 "temperature": qol.electronvolt_to_kelvin(0.4),
                 "drift velocity": 0,
                 "number of simulated particles per grid cell": 10,
+                "output": True,
                 **qol.no_initial_wave()
             }
         }
@@ -88,6 +95,7 @@ def generate_plasma(preset):
                 "temperature": 4,
                 "drift velocity": 0,
                 "number of simulated particles per grid cell": 3200,
+                "output": True,
                 **qol.no_initial_wave()
             },
             "proton": {
@@ -97,6 +105,7 @@ def generate_plasma(preset):
                 "temperature": 1,
                 "drift velocity": 0,
                 "number of simulated particles per grid cell": 3200,
+                "output": True,
                 **qol.no_initial_wave()
             }
         }
@@ -108,6 +117,7 @@ def generate_plasma(preset):
                 "temperature": 1E4,
                 "drift velocity": 0,
                 "number of simulated particles per grid cell": 10,
+                "output": True,
                 **qol.no_initial_wave()
             }
         }
@@ -120,6 +130,7 @@ def generate_plasma(preset):
                 "temperature": 0.008,
                 "drift velocity": 0,
                 "number of simulated particles per grid cell": 100,
+                "output": True,
                 **qol.no_initial_wave()
             },
             "proton": {
@@ -129,6 +140,7 @@ def generate_plasma(preset):
                 "temperature": 0.4,
                 "drift velocity": 0.0759,
                 "number of simulated particles per grid cell": 100,
+                "output": True,
                 **qol.no_initial_wave()
             }
         }
