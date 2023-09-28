@@ -3,8 +3,8 @@ import numpy
 
 class SpecieList:
     def __init__(self, n_sp, name=None, mass=None, real_mass=None, charge=None, real_charge=None, density=None,
-                 temperature=None, drift_velocity=None, np=None, np_all=None, out_sp=None, init_d_wv=None,
-                 init_v_wv=None, qm=None, wp=None, wc=None, kt=None, vth=None):
+                 temperature=None, drift_velocity=None, np=None, np_all=None, np_per_grid=None, out_sp=None,
+                 init_d_wv=None, init_v_wv=None, qm=None, wp=None, wc=None, kt=None, vth=None):
         """
         Store specie data
         :param n_sp: number of species
@@ -18,6 +18,7 @@ class SpecieList:
         :param drift_velocity: list of specie drift velocities
         :param np: list of specie numbers of particles per processor
         :param np_all: list of specie numbers of particles
+        :param np_per_grid: list of specie numbers of particles per grid per processor
         :param out_sp: list of output specie indices
         :param init_d_wv: dictionary of specie initial density waves
         :param init_v_wv: dictionary of specie initial velocity waves
@@ -38,6 +39,7 @@ class SpecieList:
         self.drift_velocity = drift_velocity
         self.np = np
         self.np_all = np_all
+        self.np_per_grid = np_per_grid
         self.out_sp = out_sp
         self.init_d_wv = init_d_wv
         self.init_v_wv = init_v_wv
@@ -53,6 +55,8 @@ class SpecieList:
             self.np = numpy.zeros(n_sp, dtype=int)
         if np_all is None:
             self.np_all = numpy.zeros(n_sp, dtype=int)
+        if np_per_grid is None:
+            self.np_per_grid = numpy.zeros(n_sp, dtype=int)
         if out_sp is None:
             self.out_sp = []
         if init_d_wv is None:

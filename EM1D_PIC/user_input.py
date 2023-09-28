@@ -21,5 +21,8 @@ preset = 5
 n_sample = 2 #ng * 10  # number of particles to plot per specie
 nt_sample = 16384 #2048  # ng * 32  # how many time steps to store (use powers of 2)
 
+# ENFORCE LOCAL UNIFORMITY (MAKE SURE EVERY SINGLE GRID HAS THE SAME NUMBER OF PARTICLES)
+enforce_local_uniformity = True
+
 # OUTPUT SPECIFICATIONS
 output_names = ["x", "v", "ex", "ey", "ez", "by", "bz", "rho", "jy", "jz", "den"]

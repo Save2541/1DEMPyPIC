@@ -200,3 +200,13 @@ def get_n_sp(preset=user_input.preset):
     Get number of species
     """
     return len(plasma_cauldron.generate_plasma(preset))
+
+
+def get_uniform_np():
+    """
+    Get number of particles for each grids (locally uniform distribution)
+    """
+    np_per_grid = np // ng
+    np_list = [np_per_rank + (1 if x < np % size else 0) for x in range(size)]
+    return np_list[rank]
+    return

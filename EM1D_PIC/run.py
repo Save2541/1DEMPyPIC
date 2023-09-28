@@ -20,12 +20,13 @@ from EM1D_PIC import user_input
 from EM1D_PIC import zipper
 
 
-def get_user_input(preset, n_sample, output_names):
+def get_user_input(preset, n_sample, output_names, enforce_local_uniformity):
     """
     Set default value to user input.
     :param preset: plasma preset selected by the user
     :param n_sample: number of particles whose info will be stored at this end
     :param output_names: list of requested outputs
+    :param enforce_local_uniformity: if True, every grid will have the same number of particles
     :return: preset, n_sample, output_names
     """
     if preset is None:
@@ -34,22 +35,25 @@ def get_user_input(preset, n_sample, output_names):
         n_sample = user_input.n_sample
     if output_names is None:
         output_names = user_input.output_names
-    return preset, n_sample, output_names
+    if enforce_local_uniformity is None:
+        enforce_local_uniformity = user_input.enforce_local_uniformity
+    return preset, n_sample, output_names, enforce_local_uniformity
 
 
-def run(preset=None, n_sample=None, output_names=None):
+def run(preset=None, n_sample=None, output_names=None, enforce_local_uniformity=None):
     """
     Run the program
     :param preset: plasma preset selected by the user
     :param n_sample: number of particles whose info will be stored at this end
     :param output_names: list of requested outputs
+    :param enforce_local_uniformity: if True, every grid will have the same number of particles
     :return: none
     """
     # SETUP MULTIPROCESSING
     comm, size, rank = multiprocessor.setup_mpi()
 
     # GET USER INPUT
-    preset, n_sample, output_names = get_user_input(preset, n_sample, output_names)
+    preset, n_sample, output_names, enforce_local_uniformity = get_user_input(preset, n_sample, output_names, enforce_local_uniformity)
 
     # CONVERT TO n_sample PER PROCESSOR
     n_sample = n_sample // size
@@ -85,7 +89,7 @@ def run(preset=None, n_sample=None, output_names=None):
     rng = numpy.random.default_rng()
 
     # ARGUMENTS TO BE SENT TO DISTRIBUTOR
-    dist_args = (sp_list, almanac, rng)
+    dist_args = (sp_list, almanac, rng, enforce_local_uniformity, grids)
 
     # GET PARTICLE POSITION DICTIONARY
     x_list = particle_distributor.distribute_positions(*dist_args)

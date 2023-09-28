@@ -5,18 +5,39 @@ import numpy
 from . import qol
 
 
-def distribute_positions(sp_list, almanac, rng):
+def distribute_positions(sp_list, almanac, rng, enforce_local_uniformity, grids=None):
     """
     Distribute particle positions
     :param sp_list: list of specie parameters
     :param almanac: dictionary of useful quantities
     :param rng: random number generator
+    :param enforce_local_uniformity: if True, every grid will have the same number of particles
+    :param grids: simulation grids
     :return: dictionary of particle positions
     """
     # DEFAULT DENSITY DISTRIBUTIONS (UNIFORM)
     x_list = {}
-    for i in range(0, sp_list.n_sp):
-        x_list[sp_list.name[i]] = rng.uniform(0, almanac["length"], size=sp_list.np[i])
+    if enforce_local_uniformity:
+        # INITIALIZE ARRAYS
+        for i in range(0, sp_list.n_sp):
+            x_list[sp_list.name[i]] = numpy.zeros(sp_list.np[i])
+        # GET NUMBER OF PARTICLES PER GRID
+        np_per_grid = sp_list.np_per_grid
+        # SET COUNTERS
+        start, finish = numpy.zeros_like(np_per_grid), numpy.zeros_like(np_per_grid)
+        # LOOP THROUGH THE GRIDS, EACH GRID GETTING THE SAME NUMBER OF PARTICLES
+        for grid_x in grids.x:
+            finish += np_per_grid
+            for i in range(0, sp_list.n_sp):
+                x_list[sp_list.name[i]][start[i]:finish[i]] = rng.uniform(grid_x, grid_x + almanac["dx"],
+                                                                          size=np_per_grid[i])
+            start += np_per_grid
+        # SHUFFLE LIST (PROBABLY NOT NEEDED)
+        for specie in x_list:
+            rng.shuffle(x_list[specie])
+    else:
+        for i in range(0, sp_list.n_sp):
+            x_list[sp_list.name[i]] = rng.uniform(0, almanac["length"], size=sp_list.np[i])
 
     # INITIAL DENSITY WAVES
     def initialize_density_waves():
@@ -42,7 +63,7 @@ def distribute_positions(sp_list, almanac, rng):
 def distribute_velocities(x_list, sp_list, almanac, rng):
     """
     Distribute particle velocities
-    :param x_list: particle position list
+    :param x_list: list of particle positions
     :param sp_list: list of specie parameters
     :param almanac: dictionary of useful quantities
     :param rng: random number generator
