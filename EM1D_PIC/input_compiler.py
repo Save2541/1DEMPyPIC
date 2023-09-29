@@ -80,7 +80,8 @@ def compile_input(sp_list, specie_names, size, rank, ng=user_input.ng):
         sp_list.np_all[iterator] = np
         sp_list.np[iterator] = multiprocessor.get_ranked_np(np, size, rank)
         sp_list.np_per_grid[iterator] = multiprocessor.get_ranked_np(np_per_grid, size, rank)
-        sp_list.out_sp.append(iterator)
+        if parameters["output"]:
+            sp_list.out_sp.append(iterator)
         sp_list.init_d_wv[specie_name] = parameters["initial density wave"]
         sp_list.init_v_wv[specie_name] = parameters["initial velocity wave"]
         iterator += 1
