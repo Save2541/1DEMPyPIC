@@ -89,10 +89,10 @@ def run(preset=None, n_sample=None, output_names=None, enforce_local_uniformity=
     rng = numpy.random.default_rng()
 
     # ARGUMENTS TO BE SENT TO DISTRIBUTOR
-    dist_args = (sp_list, almanac, rng, enforce_local_uniformity, grids)
+    dist_args = (sp_list, almanac, rng)
 
     # GET PARTICLE POSITION DICTIONARY
-    x_list = particle_distributor.distribute_positions(*dist_args)
+    x_list = particle_distributor.distribute_positions(*dist_args, enforce_local_uniformity, grids)
 
     # GET PARTICLE VELOCITY DICTIONARY
     v_list = particle_distributor.distribute_velocities(x_list, *dist_args)
