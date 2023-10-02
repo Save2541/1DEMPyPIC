@@ -32,9 +32,8 @@ def derive_parameters(sp_list, theta=user_input.theta, b0=user_input.b0, dx=user
     sp_list.wc = abs(sp_list.qm) * b0  # cyclotron frequencies (rad/s)
     sp_list.kt = constants.kb * sp_list.temperature  # thermal energies kT's (J)
     sp_list.vth = numpy.sqrt(2 * sp_list.kt / sp_list.mass)  # thermal velocities (m/s)
-    z_2 = (sp_list.charge / constants.qe_real) ** 2
-    sum_z2n_over_t = numpy.sum(z_2 * sp_list.density / sp_list.temperature)
-    lambda_d = math.sqrt(constants.epsilon * constants.kb / (constants.qe_real ** 2 * sum_z2n_over_t))  # Debye length (m)
+    sum_z2n_over_t = numpy.sum(sp_list.charge ** 2 * sp_list.density / sp_list.temperature)
+    lambda_d = math.sqrt(constants.epsilon * constants.kb / sum_z2n_over_t)  # Debye length (m)
     #lambda_d = sp_list.vth[0] / math.sqrt(2) / sp_list.wp[0]  # Electron Debye length (m)
     rho_mass = numpy.sum(sp_list.density * sp_list.mass)  # mass density
     # GRID SIZES
